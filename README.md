@@ -11,7 +11,8 @@ https://www.paypal.com/paypalme/faikhozen
 
 
 
-someone complained I used AI and suggested that I should "pretend" to at least to not use AI
+someone complained that I used AI for this and suggested that I should "PRETEND" to at least to not use AI.
+
 why should i hide that fact? its already obvious
 
 ## 📥 Installation Guide 
