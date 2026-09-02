@@ -19,8 +19,18 @@ why should i hide that fact? its already obvious
 TODO:
 
 Props Trade
--- right now it is buggy especially Jade
----will try to find a solution for this but because of Jade fall back to startup interrupt limb vs prop, prop vs prop, prop vs startup delayed prop matching
+
+-right now it is buggy especially Jade
+
+--will try to find a solution for this but because of Jade fall back to no trade
+
+--startup interrupt limb vs prop
+
+--prop vs prop same startup
+
+--prop vs startup delayed prop matching
+
+
 
 I just want to fix the bugs and nuances of vanilla mk9
 
