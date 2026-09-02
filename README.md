@@ -2,6 +2,8 @@
 
 **Version:** 0.67 (Release Candidate)  
 **Author:** Fai Khozen  
+Donations are pretty much appreciated
+https://www.paypal.com/paypalme/faikhozen
 **Platform:** PC (Steam / Mortal Kombat: Komplete Edition)
 
 ---
