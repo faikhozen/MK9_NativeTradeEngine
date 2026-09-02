@@ -20,15 +20,15 @@ TODO:
 
 Props Trade
 
--right now it is buggy especially Jade
+-right now mod is new and buggy trade on props will have them float critically on  Jade, will disable her Staff if not acted upon quickly during match with this mod
 
---will try to find a solution for this but because of Jade fall back to no trade
+--will try to find a solution for this but because of Jade fall back to no trade if props are in the context of things
 
---startup interrupt limb vs prop
+--startup interrupt limb normal vs prop (prop win)
 
---prop vs prop same startup
+--prop vs prop same  matching startup (50/50)
 
---prop vs startup delayed prop matching
+--prop vs  prop startup delayed (delayed win)
 
 
 
