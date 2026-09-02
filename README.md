@@ -58,6 +58,6 @@ Simply delete `dinput8.dll` from your `DiscContentPC` folder. Your game will ret
 
 ---
 
-## 📜 Credits & Reverse Engineering
-* **Author:** Fai Khozen
+## 📜 Credits 
+* **Author:** Fai Khozen and lord savior Chet Jeepeet
 * **Engine Architecture:** For full technical disassembly and reverse engineering documentation, see [`docs/MK9_TRADE_ENGINE_DECONSTRUCTION.md`](file:///c:/Users/casan/Documents/github/MK9_RE/docs/MK9_TRADE_ENGINE_DECONSTRUCTION.md).
