@@ -10,9 +10,9 @@ https://www.paypal.com/paypalme/faikhozen
 
 
 
----
-someone complained I used AI  and suggested that i pretend to be not use AI
----
+
+someone complained I used AI and suggested that I should "pretend" to at least to not use AI
+why should i hide that fact? its already obvious
 
 ## 📥 Installation Guide 
 
