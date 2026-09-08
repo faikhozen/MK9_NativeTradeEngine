@@ -7,11 +7,6 @@
 > **AI Assistance Disclosure:** This project was developed and reverse-engineered with the assistance of AI pair-programming tools for low-level memory analysis, disassembly tracing, and native hook orchestration.
 
 
-<<<<<<< Updated upstream
-Donations are pretty much appreciated  
-https://www.paypal.com/paypalme/faikhozen
-
-=======
 ## Overview
 
 This mod restores authentic physical strike trades, weapon clashing, and low-level priority resolution in Mortal Kombat 9 (Komplete Edition) on PC.
@@ -19,15 +14,8 @@ This mod restores authentic physical strike trades, weapon clashing, and low-lev
 In vanilla MK9, when two players attack simultaneously, the engine's internal anti-trade system (Stage 5) arbitrarily kills the second player's attack thread on frame 1, making true trades impossible and causing one-sided interrupts.
 
 This mod hooks the native combat pipeline directly to enable natural fighting game trading, full Type A/B weapon prop collision, authoritative move priority rules, live frame data tools, and essential quality-of-life engine fixes.
->>>>>>> Stashed changes
 
 
-<<<<<<< Updated upstream
-
-someone complained that I used AI for this and suggested that I should "PRETEND" to at least to not use AI.
-
-why should i hide that fact? its already obvious
-=======
 ## Core Features & Combat Mechanics
 
 ### 1. Physical Trade Engine & Clash Resolution
@@ -72,14 +60,8 @@ why should i hide that fact? its already obvious
 * **Skip Intro / Instant Title Screen:** Bypasses WB and NetherRealm intro Bink movies directly to the Title Screen.
 * **R6025 Pure Virtual Call Fix:** Neutralizes uninitialized audio vtables to prevent random R6025 runtime crashes.
 * **Havok Stability Armor:** Validates memory page commit status before animation evaluations, eliminating Havok worker thread access violations.
->>>>>>> Stashed changes
 
 
-<<<<<<< Updated upstream
-TODO:
-
-Props Trade
-=======
 ## Controls & Hotkeys
 
 ### General & Overlay Controls
@@ -118,15 +100,9 @@ Props Trade
   * F6: Jump-In vs D+2 Anti-Air Uppercut (D+2 wins)
   * F7: Jump-In vs Standing Normal 1 (Jump-in wins)
   * F8: Both do D+2 Uppercut (Later inputted D+2 wins)
->>>>>>> Stashed changes
 
 -right now mod is new and buggy trade on props will have them float critically on  Jade, will disable her Staff if not acted upon quickly during match with this mod
 
-<<<<<<< Updated upstream
---will try to find a solution for this but because of Jade fall back to no trade if props are in the context of things
-
---startup interrupt limb normal vs prop (prop win)
-=======
 ## Installation
 
 1. Copy dinput8.dll into your MK9 game directory:
@@ -135,51 +111,14 @@ Props Trade
    `
 2. Launch Mortal Kombat Komplete Edition normally through Steam.
 3. To uninstall, simply delete or rename dinput8.dll.
->>>>>>> Stashed changes
 
 --prop vs prop same  matching startup (50/50)
 
-<<<<<<< Updated upstream
---prop vs  prop startup delayed (delayed win)
-
-
-
-I just want to fix the bugs and nuances of vanilla mk9
-
-
-TODO but hassle:
-Frame Data
-HurtBox and Hitbox detection
-
-
-## 📥 Installation Guide 
-
-### Step 1: Copy the File
-Copy the file **`dinput8.dll`** into your Mortal Kombat Komplete Edition game folder:
-
-> **Default Steam Path:**  
-> `V:\SteamLibrary\steamapps\common\MortalKombat_KompleteEdition\DiscContentPC\`  
-> *(or wherever your Steam library is located: `C:\Program Files (x86)\Steam\steamapps\common\...`)*
-
-
-
----
-
-## 🗑️ How to Uninstall
-Simply delete `dinput8.dll` from your `DiscContentPC` folder. Your game will return 100% to its original vanilla state.
-
----
-
-## 📜 Credits 
-* **Author:** Fai Khozen and lord savior Chet Jeepeet
-* **Engine Architecture:** For full technical disassembly and reverse engineering documentation, see [`docs/MK9_TRADE_ENGINE_DECONSTRUCTION.md`](file:///c:/Users/casan/Documents/github/MK9_RE/docs/MK9_TRADE_ENGINE_DECONSTRUCTION.md).
-=======
 ## TO DO / Roadmap
 
 - [ ] More vanilla MK9 bug fixes & legacy crash remedies
-- [ ] negative edge removal
+- [ ] Negative edge removal
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
 - [ ] EZ Toasty option meter gain
 - [ ] Breaker meter allowance adjustments & tuning
->>>>>>> Stashed changes
