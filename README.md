@@ -112,8 +112,6 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 2. Launch Mortal Kombat Komplete Edition normally through Steam.
 3. To uninstall, simply delete or rename dinput8.dll.
 
---prop vs prop same  matching startup (50/50)
-
 ## TO DO / Roadmap
 
 - [ ] More vanilla MK9 bug fixes & legacy crash remedies
