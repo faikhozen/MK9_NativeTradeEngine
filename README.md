@@ -71,8 +71,8 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 | **\ (Backslash)** | Pause / Freeze Game Simulation |
 | **= (Equals)** | Step 1 Frame Forward (while paused) |
 | **F9** | Toggle Real-Time Frame Data Visualizer HUD |
-| **F10** | Toggle 3D Hitbox / Hurtbox / Pushbox Visualizers |
-| **F11** | Cycle Diagnostic Test Modes (Mode 1 to Mode 7) |
+| **F10** | Cycle Display Mode |
+| **F11** | Toggle Native Trade or Vanilla MK9 |
 
 ### Diagnostic Macro Test Suite (In Practice Mode)
 * **Mode 1: Normal Timing Suite**
@@ -101,14 +101,14 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
   * F7: Jump-In vs Standing Normal 1 (Jump-in wins)
   * F8: Both do D+2 Uppercut (Later inputted D+2 wins)
 
--right now mod is new and buggy trade on props will have them float critically on  Jade, will disable her Staff if not acted upon quickly during match with this mod
+
 
 ## Installation
 
 1. Copy dinput8.dll into your MK9 game directory:
-   `	ext
+   ``	ext
    Steam\steamapps\common\MortalKombat_KompleteEdition\DiscContentPC\
-   `
+   ``
 2. Launch Mortal Kombat Komplete Edition normally through Steam.
 3. To uninstall, simply delete or rename dinput8.dll.
 
