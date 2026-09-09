@@ -2,6 +2,7 @@
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)
+**Bug Reporting:** [X/Twitter](https://x.com/faikhozen) (https://x.com/faikhozen)
 
 > [!NOTE]
 > **AI Assistance Disclosure:** This project was developed and reverse-engineered with the assistance of AI pair-programming tools for low-level memory analysis, disassembly tracing, and native hook orchestration.
@@ -38,7 +39,7 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **X-Ray Absolute Priority:** Cinematic X-Ray super moves cleanly overpower all incoming normal and special strikes.
 * **Instant Projectile Impacts:** Projectiles deal immediate damage/reactions on contact without artificial holding or passthrough glitches.
 
-### 4. 3D Hitbox & Collision Visualizer (DirectX 9 Hook)
+### 4. 3D Hitbox & Collision Visualizer (DirectX 9 Hook) [GRAPHICAL INACCURATE, User can adjust placement through UI)
 * **Red Volumes:** Active physical striking hitboxes (limbs, Type A weapons, Type B props).
 * **Green Volumes:** Full skeletal hurtboxes and body collision cylinders.
 * **Cyan Volumes:** Ground and aerial positional pushboxes.
@@ -152,8 +153,10 @@ Press **~ (Tilde)** at any time during gameplay or practice mode to open the Liv
 ## TO DO / Roadmap
 
 - [ ] More vanilla MK9 bug fixes & legacy crash remedies
+- [ ] Accuracy in Hitboxes, Hurtboxes by default
 - [ ] Negative edge removal
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
+- [ ] Toasty Meter Boost Training
 - [ ] EZ Toasty option meter gain
 - [ ] Breaker meter allowance adjustments & tuning
