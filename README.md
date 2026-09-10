@@ -39,13 +39,13 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **X-Ray Absolute Priority:** Cinematic X-Ray super moves cleanly overpower all incoming normal and special strikes.
 * **Instant Projectile Impacts:** Projectiles deal immediate damage/reactions on contact without artificial holding or passthrough glitches.
 
-### 4. 3D Hitbox & Collision Visualizer (DirectX 9 Hook) [GRAPHICAL INACCURATE, User can adjust placement through UI)
+### 4. 3D Hitbox & Collision Visualizer (DirectX 9 Hook) EXPERIMENTAL[GRAPHICAL INACCURATE, User can adjust placement through UI)
 * **Red Volumes:** Active physical striking hitboxes (limbs, Type A weapons, Type B props).
 * **Green Volumes:** Full skeletal hurtboxes and body collision cylinders.
 * **Cyan Volumes:** Ground and aerial positional pushboxes.
 * Toggleable directly in the in-game console (~) with safe DX9 primitive flushing.
 
-### 5. Live Frame Data Timeline & Advantage Display
+### 5. Live Frame Data Timeline & Advantage Display EXPERIMENTAL
 * Toggleable in-game HUD via **F9** or the console menu.
 * Real-time frame timeline breakdown: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun (Purple)**.
 * Real-time frame advantage readout (+/- on hit or on block).
