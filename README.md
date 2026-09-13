@@ -74,8 +74,8 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **Trade-Ins & Counter Hits:** Natural counter-hit advantages when striking an opponent during their startup windup.
 
 ### 2. Weapon Prop Clashing (Type A & Type B)
-* **Type A Props (Rigged Skeletal Weapons):** Full 3D collision clashing for direct bone-attached weapons (Scorpion swords, Kitana steel fans, Baraka arm blades, Sonya batons, Cyber Sub-Zero swords).
-* **Type B Props (Spawned Child Entities):** Real-time tracking and hitbox clashing for detached/attached weapon entities (Jade bo staff, Nightwolf tomahawks, Kenshi spirit sword, Mileena sai).
+* **Type A Props (Spawned Child Entities):** Real-time tracking and hitbox clashing for detached/attached weapon entities (Jade bo staff, Cyber Sub-Zero swords, Kung Lao Hat).
+* **Type B Props (Rigged Skeletal Weapons):** Full 3D collision clashing for direct bone-attached weapons (Scorpion swords, Kitana steel fans, Kabal Hookswords ).
 * **Weapon vs Limb Clashing:** Authentic physical interactions when striking weapons against limbs or weapons against weapons.
 
 ### 3. Move Priority Hierarchy
@@ -148,8 +148,8 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **Modes 3–6: Projectile Diagnostic Suites** (Simultaneous projectile clash testing)
 * **Mode 7: Matchup Priority Suite (Scorpion vs Sub-Zero)** (D,F+3 vs D+1, D+2 vs Specials, Jump-in vs Anti-Air)
 * **Mode 8: Release Check & Input Buffer Diagnostics** (Standard, Snap, Stagger, and Direction-Held Negative Edge checks)
-* **Mode 9: Live Projectile & Frame Data Telemetry** (Projectile trajectory, hitbox duration, and frame data analysis)
-* **Mode 10: EX Forceball -> F+3 Frame Trap vs EX Reversals** (Reptile Stand BL vs Crouch BL at Frames 94-103 into EX Flip Kick)
+* **Mode 9: Ducking Bug** (Projectile trajectory, hitbox duration, and frame data analysis)
+* **Mode 10: Meter Drain Bug** (Johnny Cage vs Johnny Cage Pressure trap from EX Ball on Block to F+3)
 
 ---
 
