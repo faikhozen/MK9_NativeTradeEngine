@@ -1,7 +1,7 @@
 <img width="1096" height="481" alt="image" src="https://github.com/user-attachments/assets/389a714b-0c9e-4296-9a5d-4db38b6d628a" />
 
 
-# MK9 Native Physical Trade Engine Mod (v0.6704c)
+# MK9 Native Physical Trade Engine Mod (v0.6704d)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -12,7 +12,7 @@
 
 ---
 
-## What's New in v0.6704c (Changelog Since v0.6704b)
+## What's New in v0.6704d (Changelog Since v0.6704b)
 
 * **[FIX] Trade Priority & Mutual Clash Engine:**
   * **Restored Consecutive Trade Execution:** Fixed an attack start frame register bug where returning to neutral, hitstun, or knockdown failed to reset script tracking markers, ensuring all subsequent simultaneous attacks trade reliably throughout the entire match.
