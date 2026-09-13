@@ -3,7 +3,7 @@
 
 # MK9 Native Physical Trade Engine Mod (v0.6702b)
 **Author:** Fai Khozen  
-**Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
+**Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
 **Bug Reporting:** [X/Twitter](https://x.com/faikhozen) (https://x.com/faikhozen)
 
