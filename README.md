@@ -50,6 +50,10 @@
   * Consolidated all gameplay fixes (Physical Trade Engine, Negative Edge P1/P2, Crouch Buffer Fix, Meter Drain Glitch Fix, and Toasty Training) into a unified, clean management tab in the ImGui console (~).
   * Enhanced stability guards for Havok animation worker threads and DirectX 9 device resets.
 
+* **[FIXES] Visual Glitch when Prop Attack hit startup and recovery frame [prop vanish]**
+
+* **[FIXES] Hang up on exact frame punish on props with limb normals**
+
 ---
 
 ## Overview
