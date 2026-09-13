@@ -1,11 +1,51 @@
-# MK9 Native Physical Trade Engine Mod (v0.6701a)
+# MK9 Native Physical Trade Engine Mod (v0.6702b)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
-**Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)
+**Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
 **Bug Reporting:** [X/Twitter](https://x.com/faikhozen) (https://x.com/faikhozen)
 
 > [!NOTE]
 > **AI Assistance Disclosure:** This project was developed and reverse-engineered with the assistance of AI pair-programming tools for low-level memory analysis, disassembly tracing, and native hook orchestration.
+
+---
+
+## What's New in v0.6702b (Changelog Since v0.6701a)
+
+* **[NEW] Frame Data Visualizer & Frame Bar Enhancements:**
+  * **Dynamic Hitstun & Blockstun Timeline Segmentation:** The real-time frame bar timeline now dynamically displays state transitions with clean color coding: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun / Blockstun (Purple)**, and **Dash / Movement (Orange)**.
+  * **Precise Frame Timings & Active Digit Overlays:** Displays live duration numbers directly over active frame segments for instant visual measurement of startup windows and active hit frames.
+  * **Real-Time Frame Advantage Readout (+/-):** Instant frame advantage calculation displayed on screen (+/- on hit or on block) as soon as moves resolve or connect with opponent guard.
+  * **Projectile Advantage Support:** Expanded frame data timeline engine to track projectile travel, active projectile collision windows, and projectile advantage on block/hit.
+  * **Visual HUD Polish & Placement Options:** Polished frame bar layout with options to adjust positioning and opacity directly through the in-game console. Toggleable on/off anytime via **F9**.
+
+* **[NEW] Meter Drain Glitch Fix & Frame-1 EX Super Armor Protection:**
+  * Fixed the notorious vanilla engine bug where getting struck on the early startup frames of an EX Special move (before native armor activates) causes the player to lose 1 bar of super meter while the move completely drops and fails to execute.
+  * Grants immediate Frame-1 Super Armor, neutralizes incoming flinch reactions, and protects the attacker's action from premature abortion, allowing armored special moves to reliably absorb incoming hits without losing meter.
+  * Toggleable via the in-game console under **Gameplay Fixes -> Meter Drain Glitch Fix** and header quick-toggle button.
+
+* **[NEW] Crouch Input Buffer Lookback Timeout Fix:**
+  * Fixed the vanilla engine bug where holding Down causes directional buffer tokens to expire after 8 frames, causing subsequent attack button presses (1, 2, 3, 4) to resolve as neutral standing attacks rather than low pokes (D+1, D+3, D+4) or uppercuts (D+2).
+  * Maintains continuous crouch state for as long as Down is physically held, ensuring 100% reliable low pokes and anti-air uppercuts from extended crouching states.
+
+* **[NEW] Negative Edge (Release Check) Subsystem:**
+  * **Tournament Standard (Disabled by Default):** In competitive fighting games, specials executing on button release often cause accidental misfires. This mod defaults Negative Edge to **OFF** for both players.
+  * **Independent Per-Player Toggles:** Easily turn Negative Edge on or off for P1 and P2 individually via hotkeys (`Shift + F7` / `Shift + F8`) or the console UI.
+  * **Clean Execution:** Intercepts release queries directly without console log spam.
+  * **Mode 8 Diagnostic Suite:** Built-in automated macro suite to test and verify press vs release behavior across standard, snap, stagger, and direction-held buffers.
+
+* **[NEW] Toasty Training Mode & Meter Boost System:**
+  * Added Toasty Training Mode that forces Dan Forden's "Toasty!" easter egg to trigger 100% of the time on qualifying D+2 uppercuts across all game modes (Versus, Arcade, Training) and stages.
+  * Unlocks the authentic NetherRealm 85-frame reward window on uppercuts, enabling full super meter replenishment on secret `Down + Start` input for labbing and combo practice.
+  * Includes real-time UI controls and a dynamic 32-character secret input guide in the ImGui console.
+
+* **[NEW] Expanded Diagnostic Test Suites (Modes 8, 9 & 10):**
+  * **Mode 8 (Release Check Diagnostics):** 8 automated macros testing raw negative edge, downstrokes, hit-confirm cancels, whiff cancels, and rapid string buffers.
+  * **Mode 9 (Live Projectile & Frame Data Telemetry):** Automated test rig for evaluating projectile trajectories, hitbox duration, and frame data interactions.
+  * **Mode 10 (EX Forceball -> F+3 Frame Trap vs EX Reversals):** 8-macro diagnostic suite (F1-F8) testing stand blocking vs crouch blocking into EX special reversals across precise frame intervals (Frames 94-103).
+
+* **[NEW] Tabbed ImGui Console UI & Dedicated Gameplay Fixes Menu:**
+  * Consolidated all gameplay fixes (Physical Trade Engine, Negative Edge P1/P2, Crouch Buffer Fix, Meter Drain Glitch Fix, and Toasty Training) into a unified, clean management tab in the ImGui console (~).
+  * Enhanced stability guards for Havok animation worker threads and DirectX 9 device resets.
 
 ---
 
@@ -15,7 +55,7 @@ This mod restores authentic physical strike trades, weapon clashing, and low-lev
 
 In vanilla MK9, when two players attack simultaneously, the engine's internal anti-trade system (Stage 5) arbitrarily kills the second player's attack thread on frame 1, making true trades impossible and causing one-sided interrupts.
 
-This mod hooks the native combat pipeline directly to enable natural fighting game trading, full Type A/B weapon prop collision, authoritative move priority rules, live frame data tools, and essential quality-of-life engine fixes.
+This mod hooks the native combat pipeline directly to enable natural fighting game trading, full Type A/B weapon prop collision, authoritative move priority rules, per-player Negative Edge (Release Check) toggles, live frame data tools, and essential quality-of-life engine fixes.
 
 ---
 
@@ -39,22 +79,37 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **X-Ray Absolute Priority:** Cinematic X-Ray super moves cleanly overpower all incoming normal and special strikes.
 * **Instant Projectile Impacts:** Projectiles deal immediate damage/reactions on contact without artificial holding or passthrough glitches.
 
-### 4. 3D Hitbox & Collision Visualizer (DirectX 9 Hook) EXPERIMENTAL[GRAPHICAL INACCURATE, User can adjust placement through UI)
+### 4. Frame-1 EX Super Armor & Meter Drain Protection
+* Prevents the vanilla meter drain bug where taking a hit on EX startup drains 1 bar of meter without performing the move.
+* Injects Frame-1 Super Armor and guards attacker moves against interruption during early startup.
+
+### 5. Persistent Crouch Input Buffer (No 8-Frame Timeout)
+* Eliminates the 8-frame directional lookback decay while holding Down.
+* Pokes and uppercuts come out 100% consistently from extended crouching states.
+
+### 6. Negative Edge (Release Check) Subsystem
+* **Tournament Standard (Disabled by Default):** In competitive fighting games, specials executing on button release often cause accidental misfires. This mod defaults Negative Edge to **OFF** for both players.
+* **Independent Per-Player Toggles:** Easily turn Negative Edge on or off for P1 and P2 individually via hotkeys or the console UI.
+* **Zero Log Spam:** Native engine hooks intercept release queries directly without console spam.
+* **Mode 8 Diagnostic Suite:** Programmatic verification of press vs release behavior.
+
+### 7. Live Frame Data Timeline & Advantage Display
+* Toggleable in-game HUD via **F9** or the console menu.
+* Real-time frame timeline breakdown: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun / Blockstun (Purple)**, **Dash / Movement (Orange)**.
+* Real-time frame advantage readout (+/- on hit or on block).
+* Active duration numbers displayed directly on timeline segments.
+
+### 8. 3D Hitbox & Collision Visualizer (DirectX 9 Hook)
 * **Red Volumes:** Active physical striking hitboxes (limbs, Type A weapons, Type B props).
 * **Green Volumes:** Full skeletal hurtboxes and body collision cylinders.
 * **Cyan Volumes:** Ground and aerial positional pushboxes.
 * Toggleable directly in the in-game console (~) with safe DX9 primitive flushing.
 
-### 5. Live Frame Data Timeline & Advantage Display EXPERIMENTAL
-* Toggleable in-game HUD via **F9** or the console menu.
-* Real-time frame timeline breakdown: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun (Purple)**.
-* Real-time frame advantage readout (+/- on hit or on block).
-
-### 6. Simulation Controls (Pause & Frame-Step)
+### 9. Simulation Controls (Pause & Frame-Step)
 * **Pause / Freeze Game Simulation:** Press **Backslash (\)** to instantly freeze the simulation match state.
 * **Step 1 Frame Forward:** Press **Equals (=)** while paused to advance the match exactly one tick at a time--ideal for inspecting hitboxes, startup frames, and trades.
 
-### 7. Video Modes & Quality of Life
+### 10. Video Modes & Quality of Life
 * **Video Modes (Borderless, Windowed, Fullscreen):**
   * **Borderless Windowed:** Runs at full desktop resolution without borders, allowing instant Alt+Tab multitasking without black screens or crashes.
   * **Windowed:** Standard resizable windowed mode.
@@ -63,38 +118,6 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **Skip Intro / Instant Title Screen:** Bypasses WB and NetherRealm intro Bink movies directly to the Title Screen.
 * **R6025 Pure Virtual Call Fix:** Neutralizes uninitialized audio vtables to prevent random R6025 runtime crashes.
 * **Havok Stability Armor:** Validates memory page commit status before animation evaluations, eliminating Havok worker thread access violations.
-
----
-
-## In-Game Console & Menu Options (~ / Tilde)
-
-Press **~ (Tilde)** at any time during gameplay or practice mode to open the Live ImGui Console. The menu provides:
-
-### 1. View Menu
-* **Frame Data Visualizer (F9):** Toggle the real-time frame timeline HUD on/off.
-* **Auto-Scroll:** Enable/disable auto-scrolling log output.
-* **Opacity Slider:** Adjust the console window transparency (20% to 100%).
-* **Clear Log:** Wipes the current in-memory combat log history.
-
-### 2. Display Mode Menu
-* **Cycle Mode (F10):** Instantly switch between **Borderless Windowed**, **Windowed**, and **Fullscreen**.
-
-### 3. Status Banner & Quick Actions
-* **Trade Fix Toggle (F11):** Enable or disable the physical trade engine on the fly.
-* **Display Status:** Displays the current active video mode name.
-* **Simulation Frame Counter:** Shows the exact simulation frame number (Frame: #).
-* **Simulation Pause / Step Buttons:** Freeze the game (\) and step frame-by-frame (=) with clickable UI buttons.
-
-### 4. UE3 Native 3D Collision Visualizer
-* **[Checkbox] Draw Attack Red Hitboxes (3D Spheres):** Striking limbs, Type A rigged weapons, and Type B spawned props.
-* **[Checkbox] Draw Body Green Hurtboxes (3D Spheres):** Skeletal hurtbox spheres and body capsules.
-* **[Checkbox] Draw Position Cyan Pushboxes (3D Cylinders):** Positional pushbox geometry.
-
-### 5. Diagnostic Test Bot Triggers (Modes 1 - 7)
-* Clickable on-screen buttons to fire automated test macros for timing, weapon clashes, projectiles, and priority scenarios.
-
-### 6. Real-Time Combat & Frame Data Log
-* Live telemetry log displaying attack classifications, damage percentages, reaction IDs, trade outcomes, frame data timelines, and frame advantage calculations.
 
 ---
 
@@ -109,44 +132,46 @@ Press **~ (Tilde)** at any time during gameplay or practice mode to open the Liv
 | **F9** | Toggle Real-Time Frame Data Visualizer HUD |
 | **F10** | Cycle Video Display Mode (Borderless / Windowed / Fullscreen) |
 | **F11** | Toggle Native Trade Engine Fix / Vanilla MK9 |
+| **Shift + F7** | Toggle Player 1 Negative Edge (Release Check) ON / OFF |
+| **Shift + F8** | Toggle Player 2 Negative Edge (Release Check) ON / OFF |
 
-### Diagnostic Macro Test Suite (In Practice Mode / Keyboard Controls (P2 Human mode))
-* **Mode 1: Normal Timing Suite**
-  * F1: Simultaneous FP (0f vs 0f trade)
-  * F2: P1 Delayed FP (+1 frame delay on P1)
-  * F3: P2 Delayed FP (+1 frame delay on P2)
-  * F4: P1 Delayed FP (+2 frame delay on P1)
-  * F5: P2 Delayed FP (+2 frame delay on P2)
-  * F8: Simultaneous D+FK (S+G vs Down+Num4)
-* **Mode 2: Weapon Clashing Suite**
-  * F1: Simultaneous b+FP (A+T vs Right+Num7)
-  * F2: Simultaneous b+BP (A+U vs Right+Num9)
-  * F3: P1 b+BP vs P2 Delayed FP (+1f)
-  * F4: P1 b+FP vs P2 Delayed FP (+1f)
-  * F7: P1 f+FP vs P2 BP Simultaneous
-  * F8: P1 f+BP vs P2 FP Simultaneous
-* **Modes 3–6: Projectile Diagnostic Suites**
-  * Test simultaneous projectile releases across D,B,1..4, D,F,1..4, and U,D,1..4.
-* **Mode 7: Matchup Priority Suite (Scorpion vs Sub-Zero)**
-  * F1: Sub-Zero D,F+3 vs Scorpion D+1 on Startup (Scorpion interrupts)
-  * F2: Sub-Zero D,F+3 vs Scorpion D+1 on Active (Sub-Zero wins)
-  * F3: Scorpion D,B+4 vs Sub-Zero D+1 on Startup (Sub-Zero interrupts)
-  * F4: Scorpion D,B+4 vs Sub-Zero D+1 on Active (Scorpion wins)
-  * F5: Sub-Zero D,F+3 vs Scorpion D+2 Uppercut (D+2 Uppercut wins)
-  * F6: Jump-In vs D+2 Anti-Air Uppercut (D+2 wins)
-  * F7: Jump-In vs Standing Normal 1 (Jump-in wins)
-  * F8: Both do D+2 Uppercut (Later inputted D+2 wins)
+### Diagnostic Macro Test Suites (Practice Mode / Keyboard Controls)
+* **Mode 1: Normal Timing Suite** (F1-F5: 0f, +1f, +2f FP trade intervals; F8: Low kick trade)
+* **Mode 2: Weapon Clashing Suite** (F1-F8: b+FP, b+BP, f+FP weapon clashes vs normals)
+* **Modes 3–6: Projectile Diagnostic Suites** (Simultaneous projectile clash testing)
+* **Mode 7: Matchup Priority Suite (Scorpion vs Sub-Zero)** (D,F+3 vs D+1, D+2 vs Specials, Jump-in vs Anti-Air)
+* **Mode 8: Release Check & Input Buffer Diagnostics** (Standard, Snap, Stagger, and Direction-Held Negative Edge checks)
+* **Mode 9: Live Projectile & Frame Data Telemetry** (Projectile trajectory, hitbox duration, and frame data analysis)
+* **Mode 10: EX Forceball -> F+3 Frame Trap vs EX Reversals** (Reptile Stand BL vs Crouch BL at Frames 94-103 into EX Flip Kick)
+
+---
+
+## In-Game Console & Menu Options (~ / Tilde)
+
+Press **~ (Tilde)** at any time during gameplay or practice mode to open the Live ImGui Console:
+
+1. **View Menu:** Toggle Frame Data HUD (F9), Auto-Scroll, Log Opacity slider, Clear Log.
+2. **Display Mode Menu:** Cycle Borderless Windowed, Windowed, Fullscreen (F10).
+3. **Gameplay Fixes Tab:**
+   * Trade Engine Fix Toggle (F11)
+   * Player 1 & Player 2 Negative Edge Toggles (Tournament Standard OFF / Vanilla ON)
+   * Crouch Input Buffer Lookback Fix (Persistent Crouch)
+   * Meter Drain Glitch Fix (Frame-1 Super Armor & Action Guard)
+   * Toasty Training Mode & Secret Meter Boost Lab
+4. **Collision Visualizer Tab:** Toggle Red Hitboxes, Green Hurtboxes, Cyan Pushboxes.
+5. **Diagnostic Test Bot Tab:** Trigger Modes 1 through 10 with clickable UI buttons.
+6. **Real-Time Combat Log:** Colored live telemetry feed showing hit registrations, trade decisions, damage percentages, reaction IDs, and frame timings.
 
 ---
 
 ## Installation
 
-1. Copy dinput8.dll into your MK9 game directory:
-   `	ext
+1. Copy `dinput8.dll` into your MK9 game directory:
+   ```text
    Steam\steamapps\common\MortalKombat_KompleteEdition\DiscContentPC\
-   `
+   ```
 2. Launch Mortal Kombat Komplete Edition normally through Steam.
-3. To uninstall, simply delete or rename dinput8.dll.
+3. To uninstall, simply delete or rename `dinput8.dll`.
 
 ---
 
@@ -154,9 +179,12 @@ Press **~ (Tilde)** at any time during gameplay or practice mode to open the Liv
 
 - [ ] More vanilla MK9 bug fixes & legacy crash remedies
 - [ ] Accuracy in Hitboxes, Hurtboxes by default
-- [ ] Negative edge removal
+- [x] Negative edge removal (Release Check toggle per player with tournament standard defaults)
+- [x] Crouch Input Buffer lookback timeout fix
+- [x] Meter Drain Glitch fix on EX move early startup
+- [x] Toasty Meter Boost Training & Cameo Subsystem
+- [x] Frame Data Visualizer timeline & advantage calculations
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
-- [ ] Toasty Meter Boost Training
 - [ ] EZ Toasty option meter gain
 - [ ] Breaker meter allowance adjustments & tuning
