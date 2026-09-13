@@ -1,7 +1,7 @@
 <img width="1096" height="481" alt="image" src="https://github.com/user-attachments/assets/389a714b-0c9e-4296-9a5d-4db38b6d628a" />
 
 
-# MK9 Native Physical Trade Engine Mod (v0.6702b)
+# MK9 Native Physical Trade Engine Mod (v0.6704c)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -12,7 +12,17 @@
 
 ---
 
-## What's New in v0.6702b (Changelog Since v0.6701a)
+## What's New in v0.6704c (Changelog Since v0.6704b)
+
+* **[FIX] Trade Priority & Mutual Clash Engine:**
+  * **Restored Consecutive Trade Execution:** Fixed an attack start frame register bug where returning to neutral, hitstun, or knockdown failed to reset script tracking markers, ensuring all subsequent simultaneous attacks trade reliably throughout the entire match.
+  * **Native Move Taxonomy for D+2 Uppercuts:** Refactored Uppercut classification to use NetherRealm's native `subState == 12` and move taxonomy tables (`pop_up_attack` / `anti_air_attack`) directly, eliminating false-positive Uppercut classifications on normal Front Punches, pokes, and sweeps.
+  * **Clash Hold Participant Preservation:** Resolved thread preservation during deferred mutual clashes so both fighters' active hitbox threads are protected until the return strike connects.
+
+* **[FIX] Meter Drain Glitch & 1-Hit Super Armor Budget:**
+  * Hardened Frame-1 Super Armor absorption for EX Special reversals so armor absorbs exactly 1 strike without polluting combat flags or disrupting subsequent hit interactions.
+
+## Previous Highlights (v0.6701a - v0.6704b)
 
 * **[NEW] Frame Data Visualizer & Frame Bar Enhancements:**
   * **Dynamic Hitstun & Blockstun Timeline Segmentation:** The real-time frame bar timeline now dynamically displays state transitions with clean color coding: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun / Blockstun (Purple)**, and **Dash / Movement (Orange)**.
@@ -53,6 +63,8 @@
 * **[FIXES] Visual Glitch when Prop Attack hit startup and recovery frame [prop vanish]**
 
 * **[FIXES] Hang up on exact frame punish on props with limb normals**
+
+* **[FIXES] Fatal crash on EX Special startup hit impact when absorbing attacks with Super Armor**
 
 ---
 
