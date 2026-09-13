@@ -193,5 +193,4 @@ Press **~ (Tilde)** at any time during gameplay or practice mode to open the Liv
 - [x] Frame Data Visualizer timeline & advantage calculations
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
-- [ ] EZ Toasty option meter gain
 - [ ] Breaker meter allowance adjustments & tuning
