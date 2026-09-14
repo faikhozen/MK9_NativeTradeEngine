@@ -1,9 +1,6 @@
-<img width="1096" height="481" alt="image" src="https://github.com/user-attachments/assets/389a714b-0c9e-4296-9a5d-4db38b6d628a" />
-
-
-# MK9 Native Physical Trade Engine Mod (v0.6704d)
+# MK9 Native Physical Trade Engine Mod (v0.6704e)
 **Author:** Fai Khozen  
-**Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam)  
+**Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
 **Bug Reporting:** [X/Twitter](https://x.com/faikhozen) (https://x.com/faikhozen)
 
@@ -12,17 +9,34 @@
 
 ---
 
-## What's New in v0.6704d (Changelog Since v0.6704b)
+## What's New in v0.6704e (Changelog Since v0.6704d)
 
-* **[FIX] Trade Priority & Mutual Clash Engine:**
-  * **Restored Consecutive Trade Execution:** Fixed an attack start frame register bug where returning to neutral, hitstun, or knockdown failed to reset script tracking markers, ensuring all subsequent simultaneous attacks trade reliably throughout the entire match.
-  * **Native Move Taxonomy for D+2 Uppercuts:** Refactored Uppercut classification to use NetherRealm's native `subState == 12` and move taxonomy tables (`pop_up_attack` / `anti_air_attack`) directly, eliminating false-positive Uppercut classifications on normal Front Punches, pokes, and sweeps.
-  * **Clash Hold Participant Preservation:** Resolved thread preservation during deferred mutual clashes so both fighters' active hitbox threads are protected until the return strike connects.
+* **[PERFORMANCE] Negative Edge Hook Optimization & Slowdown Elimination:**
+  * Completely resolved the gameplay slowdown / FPS drop when Negative Edge hooks were active.
+  * Replaced repeated high-frequency SEH player resolution across input hooks (`CheckButtonReleasedTag`, `CheckBufferedMove`, `IsCommandInputSatisfied`, `GetSatisfiedInputButton`, `MatchAndExecuteMove`) with fast direct pointer indexing and zero-overhead early exits, restoring solid 60 FPS performance regardless of toggle state.
 
-* **[FIX] Meter Drain Glitch & 1-Hit Super Armor Budget:**
-  * Hardened Frame-1 Super Armor absorption for EX Special reversals so armor absorbs exactly 1 strike without polluting combat flags or disrupting subsequent hit interactions.
+* **[FIX] Crouch Buffer State Cleanup (Ducking Bug Fix Fix):**
+  * Fixed a stance-locking issue where the Crouch Buffer Fix intermittently caused characters to get stuck in a crouching position while performing attacks.
+  * Properly synchronizes stance tokens and state transitions so standing attacks immediately execute standing animations and neutral recovery flows seamlessly without stuck crouch states.
 
-## Previous Highlights (v0.6701a - v0.6704b)
+* **[FEATURE] Modular Move Priority Hierarchy in Extras:**
+  * Separated all move priority rules into individual checkboxes under `Extras > Move Priority` (MenuBar & Main Tab), all **OFF** by default:
+    * `Uppercut (D+2) Anti-Air Priority`: D+2 cleanly beats incoming Jump-In attacks during active anti-air frames.
+    * `Uppercut vs Special`: D+2 cleanly overpowers grounded special moves during active clash frames.
+    * `Uppercut vs Uppercut`: Later inputted D+2 wins by default.
+    * `Jump-In Attacks`: Jump-ins trade or cleanly beat grounded standing normals during active falling frames.
+    * `X-Ray Absolute Priority`: Cinematic X-Ray super moves cleanly overpower all incoming normal and special strikes.
+    * `Instant Projectile Impacts`: Projectiles deal immediate damage/reactions on contact without artificial holding or passthrough glitches.
+  * When all priority options are OFF (default), the Physical Trade Priority Fix (F11) operates in 100% pure physical trade mode where any simultaneous hits trade symmetrically without artificial priority biases.
+
+* **[FEATURE] 720p & Below Monitor Auto-Fullscreen Lock:**
+  * Added automatic screen resolution detection for displays at or below 720p (`<= 1280x720` or height `<= 720`).
+  * When enabled (`Lock to Fullscreen on 720p & Below Monitor`), windowed and borderless switching are disabled and the game is locked to Exclusive Fullscreen to prevent window clipping or resolution distortion.
+
+* **[FIX] Fullscreen Direct3D Mouse Cursor Support:**
+  * Enabled Direct3D software cursor rendering (`io.MouseDrawCursor = g_ConsoleOpen`) and added `WM_SETCURSOR` arrow cursor handling so the mouse cursor is 100% visible and interactive inside Exclusive Fullscreen.
+
+## Previous Highlights (v0.6701a - v0.6704d)
 
 * **[NEW] Frame Data Visualizer & Frame Bar Enhancements:**
   * **Dynamic Hitstun & Blockstun Timeline Segmentation:** The real-time frame bar timeline now dynamically displays state transitions with clean color coding: **Startup (Blue)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun / Blockstun (Purple)**, and **Dash / Movement (Orange)**.
@@ -86,8 +100,8 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **Trade-Ins & Counter Hits:** Natural counter-hit advantages when striking an opponent during their startup windup.
 
 ### 2. Weapon Prop Clashing (Type A & Type B)
-* **Type A Props (Spawned Child Entities):** Real-time tracking and hitbox clashing for detached/attached weapon entities (Jade bo staff, Cyber Sub-Zero swords, Kung Lao Hat).
-* **Type B Props (Rigged Skeletal Weapons):** Full 3D collision clashing for direct bone-attached weapons (Scorpion swords, Kitana steel fans, Kabal Hookswords ).
+* **Type A Props (Rigged Skeletal Weapons):** Full 3D collision clashing for direct bone-attached weapons (Scorpion swords, Kitana steel fans, Baraka arm blades, Sonya batons, Cyber Sub-Zero swords).
+* **Type B Props (Spawned Child Entities):** Real-time tracking and hitbox clashing for detached/attached weapon entities (Jade bo staff, Nightwolf tomahawks, Kenshi spirit sword, Mileena sai).
 * **Weapon vs Limb Clashing:** Authentic physical interactions when striking weapons against limbs or weapons against weapons.
 
 ### 3. Move Priority Hierarchy
@@ -160,8 +174,8 @@ This mod hooks the native combat pipeline directly to enable natural fighting ga
 * **Modes 3–6: Projectile Diagnostic Suites** (Simultaneous projectile clash testing)
 * **Mode 7: Matchup Priority Suite (Scorpion vs Sub-Zero)** (D,F+3 vs D+1, D+2 vs Specials, Jump-in vs Anti-Air)
 * **Mode 8: Release Check & Input Buffer Diagnostics** (Standard, Snap, Stagger, and Direction-Held Negative Edge checks)
-* **Mode 9: Ducking Bug** (Projectile trajectory, hitbox duration, and frame data analysis)
-* **Mode 10: Meter Drain Bug** (Johnny Cage vs Johnny Cage Pressure trap from EX Ball on Block to F+3)
+* **Mode 9: Live Projectile & Frame Data Telemetry** (Projectile trajectory, hitbox duration, and frame data analysis)
+* **Mode 10: EX Forceball -> F+3 Frame Trap vs EX Reversals** (Reptile Stand BL vs Crouch BL at Frames 94-103 into EX Flip Kick)
 
 ---
 
@@ -205,4 +219,5 @@ Press **~ (Tilde)** at any time during gameplay or practice mode to open the Liv
 - [x] Frame Data Visualizer timeline & advantage calculations
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
+- [ ] EZ Toasty option meter gain
 - [ ] Breaker meter allowance adjustments & tuning
