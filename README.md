@@ -304,3 +304,13 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 - [x] Custom super meter expenditure & on-screen percentage HUD
 - [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
 - [ ] Frame meter gain calibration on attack hit/block
+
+---
+
+## Credits & Acknowledgements
+
+Special thanks to the authors and maintainers of the following open-source projects used in this mod:
+
+* **[MinHook](https://github.com/tsudakageyu/minhook)** by Tsuda Kageyu – The minimalistic x86/x64 API hooking library for native function detours and trampolines.
+* **[Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)** by ThirteenAG – DLL wrapper architecture allowing clean injection and dynamic library proxying (`dinput8.dll`).
+* **[Dear ImGui](https://github.com/ocornut/imgui)** by Omar Cornut – Bloat-free immediate mode graphical user interface library for C++ powering the in-game live console and visualizer overlays.
