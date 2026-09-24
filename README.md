@@ -17,21 +17,23 @@
 
 ## What's New in v0.6706a (Changelog Since v0.6705c)
 
-### 1. [FEATURE] Dramatic Mode / Dynamic Cinematic Camera System (Cam 1 & Cam 2)
-Experience high-impact fighting game moments with broadcast-style dynamic camera angles on Counter Hits, Fatal Punishes, and Simultaneous Trades:
-* **Preset Cam 1 (Dynamic FOV Close-Up):** Smooth cinematic FOV glide on counterhit / punish impact (e.g. -6.0° close-up), automatically restoring baseline FOV upon recovery.
-* **Preset Cam 2 (Angled Dynamic Perspective):** Moves camera position laterally toward the attacker (`Shift Y`) while turning the rotation angle (`Yaw`) toward the defender, creating an over-the-shoulder dramatic broadcast clash perspective.
-* **General Slow-Motion Integration:** Option to scale animation rates during camera adjustment (e.g. 0.80x slow-mo) with configurable speed-in and speed-out parameters.
-* **Camera 2 Stabilization & Anti-Drift Engine:** Eliminated compounding yaw accumulation and wild camera spins across multi-pass rendering ticks by stripping previously applied offsets from raw engine pointers (`s_LastAppliedShiftY`, `s_LastAppliedYaw`) and gating interpolation strictly to once per frame.
-* **Intelligent Recovery Tracking:** Camera holds through defender launches, knockdowns, and floor rolls, then smoothly releases back to neutral view the moment the defender gets up or recovers.
+### 1. [FEATURE] Trade Fix Engine Extension & Extended Combat Controls
+Expanded the core physical clash and trade resolution subsystem with deep combat modifiers:
+* **Dynamic Hitstun & Clash Modifiers:** Adds configurable extra hitstun on **Counter Hits** (startup interrupts) and **Fatal Punishes** (recovery interrupts) to reward offensive reads and frame traps.
+* **Real-Time Hit Indication HUD:** Renders dynamic on-screen alerts (`COUNTER HIT`, `FATAL PUNISH`, `TRADE`) on successful clash and punish confirmations.
+* **Dramatic Clash & Dynamic Camera System:** Seamless camera integration during high-impact trade/counterhit/punish events:
+  * **Preset Cam 1 (FOV Dynamic Close-Up):** Smooth cinematic FOV glide on impact (e.g. -6.0° close-up), automatically restoring baseline FOV upon recovery.
+  * **Preset Cam 2 (Over-the-Shoulder Angled Perspective):** Moves camera position laterally toward the attacker (`Shift Y`) while turning the rotation angle (`Yaw`) toward the defender for a broadcast clash angle.
+  * **General Slow-Motion Integration:** Option to scale animation rates during camera adjustment (e.g. 0.80x slow-mo) with smooth recovery.
+  * **Camera 2 Anti-Drift Engine:** Eliminated compounding yaw accumulation and wild camera spins across multi-pass rendering ticks by stripping previous offsets from raw engine pointers and gating smoothing strictly per frame.
+  * **Intelligent Recovery Tracking:** Automatically tracks defender knockdown, launch, roll, and getup, smoothly releasing back to normal match view.
+* **Block Pushback & Reaction Synchronization:** Synchronized native reaction timers (+0x2F0) with added hitstun/blockstun frames and customizable block pushback.
 
-### 2. [FEATURE] Combat Meter System: Expenditure & Gains
+### 2. [FEATURE] Combat Meter Economy (Expenditure & Generation Gains)
 Expanded the Extras menu with advanced super meter economy customization:
-* **Special Move Expenditure:** Optional super meter cost deducted upon raw special move initiation (e.g. -25.0% / -0.250).
-* **Normal to Special Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into special moves (e.g. -10.0% / -0.100).
-* **Normal to Dash Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into forward or backward dashes (e.g. -10.0% / -0.100).
+* **Special Move Expenditure:** Optional super meter cost deducted upon raw special move execution (e.g. -25.0% / -0.250).
 * **Combat Meter Generation (Gains):**
-  * **Attacker Hit Meter Gain:** Configurable flat super meter rewarded to the attacker on landed strikes (with filter modes: All Moves, Normals Only, Specials Only).
+  * **Attacker Hit Meter Gain:** Configurable flat super meter rewarded on landed strikes (with filter modes: All Moves, Normals Only, Specials Only).
   * **Defender Block Meter Gain:** Configurable flat super meter rewarded on blocking attacks (meter-on-block).
   * **Defender Hit Meter Gain:** Configurable super meter rewarded upon taking damage.
   * **Counter Hit & Fatal Punish Meter Rewards:** Configurable flat bonus super meter awarded to Defender, Attacker, or Both.
@@ -39,14 +41,15 @@ Expanded the Extras menu with advanced super meter economy customization:
 ### 3. [FIX] Super Meter & EX Special Move Isolation
 * **EX Special Move Isolation:** Fixed an issue where EX special moves fell through to normal attack classification in `OnTick`, which erroneously triggered normal attack hit gains and standard special move meter deductions.
 * **Phantom Meter Refund Fix (29.7% -> 62.7%):** Fixed a bug where attempting an EX special move with insufficient meter armed the reversal refund tracker with 33.0% (despite 0 meter being deducted), resulting in an unexpected +33.0% meter bonus upon the next action.
-* **Taxonomy Classification:** Integrated `IsEXMoveActive(plr)` into `ClassifySpecialOrSuper` in `combat_state.cpp` to guarantee that all EX specials (including unarmored projectiles like EX Fireball, EX Ice Ball) are properly classified as `MOVE_CLASS_EX_SPECIAL`.
+* **Taxonomy Classification:** Integrated active EX tracking into `ClassifySpecialOrSuper` in `combat_state.cpp` to guarantee that all EX specials (including unarmored projectiles like EX Fireball, EX Ice Ball) are properly classified as `MOVE_CLASS_EX_SPECIAL`.
 
 ### 4. [FEATURE] Juggle Deterioration & Gravity Deterioration
 * Added dynamic combo juggle decay and gravity scaling per hit count to regulate juggle extensions and prevent infinite loops.
 
-### 5. [UI & PRESETS] User Presets & Configuration
+### 5. [UI & PRESETS] User Presets & Configuration (Extras Tab)
 * 4 User Preset save/load slots (Slot 1 to Slot 4) with INI file import and export functionality.
 * Quick Preset buttons: **Apply Vanilla Preset (Default)**, **Apply Dramatic Mode (Cam 1 FOV)**, and **Dramatic Mode (Cam 2 Angled)**.
+* On-screen Move ID, animation state, and move name telemetry above super meter dials.
 
 ---
 
