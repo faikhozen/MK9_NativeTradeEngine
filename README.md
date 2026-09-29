@@ -1,4 +1,4 @@
-# MK9 Native Physical Trade Engine Mod (v0.6706a)
+# MK9 Native Physical Trade Engine Mod (v0.06707a)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -12,6 +12,41 @@
 > Both the **3D Hitbox/Collision Visualizer** and the **Frame Data Timeline & Advantage Bar (F9)** are **experimental algorithmic estimates and approximations**; they are **NOT 100% frame-perfect or pixel-perfect accurate**.
 > * **3D Collision Wireframes:** Approximated using skeletal bone transforms and heuristic bounding volumes (spheres, boxes, cylinders) rendered through native UE3 debug primitives.
 > * **Frame Data Timeline & Advantage:** Dynamically calculated from live engine animation clocks, state flags, and memory timing heuristics rather than static developer frame tables. They serve as valuable real-time labbing references, but slight discrepancies can occur across complex cancels and multi-hit strings.
+
+---
+
+## What's New in v0.06707a (Changelog Since v0.6706a)
+
+### 1. [PRACTICE AUTOMATION] Super Meter Management (Normal / Full / Refill)
+Added dedicated super meter automation to both the **Recording** and **Reversal** practice tabs:
+* **NORMAL Mode:** Standard match meter behavior and natural meter gain/loss.
+* **FULL Mode:** Continuously locks and maintains 100% full super meter (3 bars) for both players for continuous special move labbing.
+* **REFILL Mode:** When Player 1 or Player 2 stays idle without attacking for **4.0 seconds (240 frames)**, the engine automatically restores their super meter back to 100%, allowing fluid combo practice without manual menu resets.
+
+### 2. [PRACTICE AUTOMATION] Auto-Block & Strict Combo Link Verification
+* **Stand & Crouch Auto-Block:** In Reversal Mode, setting dummy stance to Auto-Block allows the initial attack to hit (confirming combo initiation) and then automatically locks the dummy into continuous guard (Stand Guard or Crouch Guard) across all subsequent hits until the attacker stops attacking for **2.0 seconds (120 frames)**, after which guard is cleanly released.
+* **Strict True-Combo Tracking:** Strengthened combo link verification to distinguish true unblockable hitstun from soft stumble states (`0x4600`), false recovery frames, and actionable guard windows, preventing false combo counter increments on blockable hits.
+
+### 3. [FIX] Counter Engine & Hitstun Recovery Synchronization
+* **Additive Frame Advantage Scaling:** Fixed an issue where hitstun modifications truncated moves with naturally long authored hitstun down to a static 16-frame baseline. Standing hitstun extensions are now strictly additive on top of native advantage ($+6 \text{ normal} + 9 \text{ extra} = \mathbf{+15}$ on Counter Hit; $+6 \text{ normal} + 19 \text{ extra} = \mathbf{+25}$ on Punish Counter).
+* **Live Gameplay Reaction Timer Priority:** Prioritized live gameplay reaction timers (`*(float*)(pChar + 0x2F0) * 60.0f`) over raw 3D sequence keyframe lengths (`+0x70` in `UAnimSequence`) to guarantee exact frame sync between animation speed and hitbox recovery.
+* **Startup Threshold Resolution (`ResolveMoveStartupFrames`):** Added a move startup evaluator inspecting both live lifecycle timers and the native attack token table (e.g., D+1 = 6f, FP = 9f, F+3 = 15f, BK = 21f) so fast attacks ($\le 5$f) respect minimum startup thresholds (default 16f in Dramatic Mode) and execute as clean normal hits.
+
+### 4. [STABILITY] Character Select Screen & DLC Package Crash Guards
+* **Guard 7 (Async Package Listener & Refcount Guards):** Patched NULL pointer access violations at `0x006A4D70`, `0x006A82A0`, `0x006A83A0`, and `0x006A4EB0` that occurred when hovering or selecting DLC characters (Kratos, Skarlet, Kenshi, Rain, Freddy Krueger).
+* **Guard 8 (DLC Registry & File Presence Validator):** Added dynamic DLC registry hooks (`0x00888000`, `0x00888630`, `0x00888720`, `0x00887C30`, `0x00887C80`) and automatic disk validation (`HasKratosFiles()`) so Kratos is selectable only when his `.xxx` asset packages exist on disk, preventing broken/invisible selections while maintaining 100% crash-free stability on standard PC installations.
+
+### 5. [ENGINE] Continuous Linear Block Pushback & Camera Anti-Drift Engine
+* **Linear Block Pushback (`s_BlockPushback`):** Replaced velocity-only scaling with per-frame continuous lateral position scaling and corner pushback reflection (`0x00433580` `SetLocation` / `0x00785370` `UpdateRenderTransform`).
+* **Camera 2 Anti-Drift Fix:** Eliminated compounding camera yaw accumulation and wild spins across multi-pass rendering ticks by stripping previous offsets from raw engine pointers and gating smoothing strictly per frame.
+
+### 6. [GRAPHICS & DISPLAY] Resolution Carousel Glitch Fix & Custom Toasty Alignment
+* **Resolution Carousel Glitch Fix:** Patched resolution index clamping (`0x00880B40` - `0x00880C20`) to prevent memory corruption when cycling 4:3 resolutions (800x600, 1024x768, 1280x960, 1400x1050, 1600x1200).
+* **Dynamic Toasty Custom Sizing & Viewport Corners:** Added custom width/height sliders, 4-corner positioning (Top-Left, Top-Right, Bottom-Left, Bottom-Right), dynamic aspect-ratio alignment, and optional randomized scaling.
+
+### 7. [ENGINE] Jump Input Buffering & Fast Engine Loading
+* **Jump Input Buffering:** Strict jump priority evaluation ensuring up/up-forward/up-back commands register reliably without falling through to grounded moves.
+* **Fast Engine Loading (`load_profiler.cpp`):** Replaced busy-waiting load hooks with async thread monitoring to eliminate loading screen stutter.
 
 ---
 
@@ -32,6 +67,8 @@ Expanded the core physical clash and trade resolution subsystem with deep combat
 ### 2. [FEATURE] Combat Meter Economy (Expenditure & Generation Gains)
 Expanded the Extras menu with advanced super meter economy customization:
 * **Special Move Expenditure:** Optional super meter cost deducted upon raw special move execution (e.g. -25.0% / -0.250).
+* **Normal to Special Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into special moves (e.g. -10.0% / -0.100).
+* **Normal to Dash Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into forward or backward dashes (e.g. -10.0% / -0.100).
 * **Combat Meter Generation (Gains):**
   * **Attacker Hit Meter Gain:** Configurable flat super meter rewarded on landed strikes (with filter modes: All Moves, Normals Only, Specials Only).
   * **Defender Block Meter Gain:** Configurable flat super meter rewarded on blocking attacks (meter-on-block).
@@ -287,7 +324,45 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 ## Verification & Integrity
 
 * **File:** `dinput8.dll` (x86 release binary)
-* **SHA-256:** `32AC9A0D22C18584C18DB1D8A923E6E963791AB95FF7DFD73468CBC7F35802EA`
+* **SHA-256:** `07164CA338F1BD414F4388C9950430F4A50E70A86DD32489D3D5593176ACAF1D`
+
+---
+
+## In-Game Console Menu Structure (~ / Tilde)
+
+Press **`~` (Tilde)** at any time during gameplay or practice mode to access the 5-tab control panel:
+
+* **Tab 1: Gameplay Fixes:**
+  * Trade Engine Fix Toggle (F11)
+  * Player 1 & Player 2 Negative Edge Toggles (Tournament Standard OFF / Vanilla ON)
+  * Crouch Input Buffer Lookback Fix (Persistent Crouch / Ducking Bug Fix)
+  * Meter Drain Glitch Fix (Frame-1 Super Armor & Action Guard)
+  * Toasty Training Mode & Dan Forden 85-Frame Reward Window
+* **Tab 2: Recording Settings:**
+  * Practice dummy frame-accurate input recording & playback engine
+  * Multi-slot recording management (Loop playback, One-shot playback)
+  * Super Meter Practice Automation (Normal / Full 100% Lock / Refill after 4.0s idle)
+* **Tab 3: Reversal Settings:**
+  * Auto-reversal attack triggers (On Blockstun, On Hitstun, On Wakeup)
+  * Practice Dummy Auto-Block Engine (Off / Stand Auto-Block / Crouch Auto-Block with 2.0s idle release)
+  * Execution delay sliders (0 to 30 frames)
+  * Knockdown recovery method selection (Normal, Tech Roll, Delayed Wakeup, Delayed Roll)
+  * Super Meter Practice Automation (Normal / Full 100% Lock / Refill after 4.0s idle)
+* **Tab 4: 3D Visualizer & Display:**
+  * UE3 Native 3D Collision Visualizer *(Experimental Estimates)*: Red Hitboxes, Green Hurtboxes, Cyan Pushboxes
+  * Display Management: Borderless, Windowed, Exclusive Fullscreen, 720p Auto-Lock, Resolution Carousel Fix
+  * Dynamic Toasty Alignment (Custom width/height, 4-corner placement, aspect ratio scaling)
+  * Frame Data Timeline Bar Settings *(Experimental Estimates)*: Opacity, Positioning, Color Glossary
+  * Detachable 3D Free Camera controls
+* **Tab 5: Extras:**
+  * Dynamic Clash & Dramatic Camera System (Cam 1 FOV Cinematic Close-up, Cam 2 Angled Over-the-Shoulder, Slow-Mo Scaling, Camera 2 Anti-Drift)
+  * Combat Meter Economy (Custom Special Move expenditure, Dash/Special cancel costs, Attack Hit meter gains, Block meter gains, Counter/Punish bonus rewards)
+  * User Presets & Profiles (Slot 1 to 4 Save/Load, INI Export/Import, Vanilla / Dramatic Mode 1 & 2 quick buttons)
+  * Super Meter System & Custom Expenditure (EX, Breaker, and X-Ray cost sliders + live % readouts)
+  * Real-Time On-Screen Meter Percentage HUD (XX.X% readout, position sliders, reset)
+  * Knockdown & Wakeup Recovery Customization (Disable Delayed Wakeup, Fixed Duration, Disable Roll)
+  * Modular Move Priority Hierarchy (Uppercuts, Specials, Jump-Ins, X-Rays, Projectiles)
+  * Extra Gameplay: Juggle Value & Gravity Deterioration (Air Decay Multiplier, Dynamic Per-Hit Deterioration Scaling, Bypass Move Juggle Limits, Live Telemetry)
 
 ---
 
@@ -301,9 +376,14 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 - [x] Toasty Meter Boost Training & Cameo Subsystem
 - [x] Frame Data Visualizer timeline & advantage calculations (experimental)
 - [x] Practice dummy recording & auto-reversal engine
+- [x] Practice dummy Auto-Block engine & strict combo link verification
+- [x] Super Meter Practice Automation (Normal, Full, Refill after 4s idle)
+- [x] Dynamic Clash Camera System (Cam 1 FOV & Cam 2 Angled over-the-shoulder)
+- [x] Combat Meter Economy customization (Expenditures, Cancels, Gains, Counter/Punish rewards)
+- [x] Character Select Screen & DLC Package crash stability guards (Guards 7 & 8)
 - [x] Custom super meter expenditure & on-screen percentage HUD
-- [ ] In-game configuration & customization menu (hotkey remapping, visualizer styling)
-- [ ] Frame meter gain calibration on attack hit/block
+- [x] In-game configuration & customization menu (presets, user profiles, INI export)
+- [x] Frame meter gain calibration on attack hit/block
 
 ---
 
