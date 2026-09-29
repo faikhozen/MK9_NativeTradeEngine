@@ -1,4 +1,4 @@
-# MK9 Native Physical Trade Engine Mod (v0.06707a)
+# MK9 Native Physical Trade Engine Mod (v0.6707a)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -15,7 +15,7 @@
 
 ---
 
-## What's New in v0.06707a (Changelog Since v0.6706a)
+## What's New in v0.6707a (Changelog Since v0.6706a)
 
 ### 1. [PRACTICE AUTOMATION] Super Meter Management (Normal / Full / Refill)
 Added dedicated super meter automation to both the **Recording** and **Reversal** practice tabs:
@@ -47,6 +47,12 @@ Added dedicated super meter automation to both the **Recording** and **Reversal*
 ### 7. [ENGINE] Jump Input Buffering & Fast Engine Loading
 * **Jump Input Buffering:** Strict jump priority evaluation ensuring up/up-forward/up-back commands register reliably without falling through to grounded moves.
 * **Fast Engine Loading (`load_profiler.cpp`):** Replaced busy-waiting load hooks with async thread monitoring to eliminate loading screen stutter.
+
+### 8. [VISUALS & CONTENT CREATION] Stage Background Removal (Void Mode / Green Screen) & 3D Floor Grid
+* **Disable Stage Background (Void Mode):** Suppresses static and environment stage geometry, meshes, background scenery, decals, and skybox rendering in real-time via low-level DirectX 9 pipeline interception, leaving fighters on a clean void stage plane.
+* **Custom Background Color & Green/Blue Screen Presets:** Built-in RGB color picker plus quick preset buttons for **Pure Black**, **Green Screen (0, 1, 0)**, **Blue Screen**, and **Magenta** for video creators and chroma-key editing.
+* **3D Perspective Floor Training Grid:** Optional perspective stage grid overlay with distance markers and center lines for spatial distancing and spacing reference.
+* **Disable Blood (No Blood):** Clean tournament mode suppressing all hit blood splats, sprays, smears, and ground pooling (Versus Kode 909-909).
 
 ---
 
@@ -324,7 +330,7 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 ## Verification & Integrity
 
 * **File:** `dinput8.dll` (x86 release binary)
-* **SHA-256:** `07164CA338F1BD414F4388C9950430F4A50E70A86DD32489D3D5593176ACAF1D`
+* **SHA-256:** `272A7D626A76B888BECE17EFC17AA27EC72A2D3C4DE1DD1AE4489EDD6862A1A7`
 
 ---
 
@@ -357,6 +363,7 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 * **Tab 5: Extras:**
   * Dynamic Clash & Dramatic Camera System (Cam 1 FOV Cinematic Close-up, Cam 2 Angled Over-the-Shoulder, Slow-Mo Scaling, Camera 2 Anti-Drift)
   * Combat Meter Economy (Custom Special Move expenditure, Dash/Special cancel costs, Attack Hit meter gains, Block meter gains, Counter/Punish bonus rewards)
+  * Visual & Immersion Modifiers (Disable Blood, Disable Stage Background / Void Mode, Custom Background Color & Chroma-Key Green/Blue Screen, 3D Perspective Floor Training Grid)
   * User Presets & Profiles (Slot 1 to 4 Save/Load, INI Export/Import, Vanilla / Dramatic Mode 1 & 2 quick buttons)
   * Super Meter System & Custom Expenditure (EX, Breaker, and X-Ray cost sliders + live % readouts)
   * Real-Time On-Screen Meter Percentage HUD (XX.X% readout, position sliders, reset)
@@ -381,6 +388,7 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 - [x] Dynamic Clash Camera System (Cam 1 FOV & Cam 2 Angled over-the-shoulder)
 - [x] Combat Meter Economy customization (Expenditures, Cancels, Gains, Counter/Punish rewards)
 - [x] Character Select Screen & DLC Package crash stability guards (Guards 7 & 8)
+- [x] Stage Background Removal / Void Mode / Green Screen & 3D perspective floor grid
 - [x] Custom super meter expenditure & on-screen percentage HUD
 - [x] In-game configuration & customization menu (presets, user profiles, INI export)
 - [x] Frame meter gain calibration on attack hit/block
