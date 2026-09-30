@@ -1,4 +1,4 @@
-# MK9 Native Physical Trade Engine Mod (v0.6707a)
+# MK9 Native Physical Trade Engine Mod (v0.6707b)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -12,6 +12,51 @@
 > Both the **3D Hitbox/Collision Visualizer** and the **Frame Data Timeline & Advantage Bar (F9)** are **experimental algorithmic estimates and approximations**; they are **NOT 100% frame-perfect or pixel-perfect accurate**.
 > * **3D Collision Wireframes:** Approximated using skeletal bone transforms and heuristic bounding volumes (spheres, boxes, cylinders) rendered through native UE3 debug primitives.
 > * **Frame Data Timeline & Advantage:** Dynamically calculated from live engine animation clocks, state flags, and memory timing heuristics rather than static developer frame tables. They serve as valuable real-time labbing references, but slight discrepancies can occur across complex cancels and multi-hit strings.
+
+---
+
+## What's New in v0.6707b (Changelog Since v0.6707a)
+
+### 1. [PRACTICE MODE] Directional Quick Position Resets (P1 & P2 Keyboard + Gamepad)
+* **P1 Keyboard Select (`VK_4` / `'4'`, `0x34`):** Fixed an issue where keyboard reset only responded to `VK_BACK` (Backspace). Fully enabled native P1 Select on the number row (`VK_4`).
+* **P2 Keyboard Select (`VK_SUBTRACT` / Numpad `-`, `0x6D`):** Integrated P2 default Select key into the position reset system so P2 keyboard players have full access to training presets.
+* **Strict Attack Key Isolation:** Added explicit key state validation ensuring `VK_NUMPAD4` (P2 Front Kick) will never accidentally trigger a position reset.
+* **Native Match Reset Hook (`TriggerNativePracticeReset`):** Hooks internal engine reset function `0x00903CD0` (`ResetForPractice`) on `0x00E8DF64` so keyboard resets cleanly clear damage info, combo counters, health values, and active move animations in full parity with gamepads.
+* **Stage Corner & Swapped Presets:**
+  * **Select Alone (Neutral):** Standard Center (`P1: -120.0f, P2: +120.0f`).
+  * **Left + Select (`A` / `Left Arrow`):** Left Corner Wall (`P1: -1140.0f, P2: -1300.0f`).
+  * **Down + Left + Select (`S` + `A` / `Down` + `Left Arrow`):** Left Corner Swapped (`P1: -1300.0f, P2: -1140.0f`).
+  * **Right + Select (`D` / `Right Arrow`):** Right Corner Wall (`P1: +1140.0f, P2: +1300.0f`).
+  * **Down + Right + Select (`S` + `D` / `Down` + `Right Arrow`):** Right Corner Swapped (`P1: +1300.0f, P2: +1140.0f`).
+  * **Down + Select (`S` / `Down Arrow`):** Center Swapped (`P1: +120.0f, P2: -120.0f`).
+
+### 2. [LIGHTING & STABILITY] Void Mode Character Lighting Preservation on Reset
+* **Lighting Probe Warmup Engine (`TriggerLightingProbeWarmup`):** Fixed a bug where resetting or teleporting fighters during **"Disable Background (Void Mode)"** broke character lighting probes, causing models to turn pitch-black or incorrectly shaded. The engine detects lateral position jumps and automatically refreshes Unreal Engine 3's native lighting cache and skeletal mesh render transforms (`0x00785370`), preserving clean lighting across all resets.
+
+### 3. [CHARACTER FIXES] Cyrax EX Bomb & Kung Lao Toasty Crash Fix
+* **Cyrax EX Bomb / EX Box (`BBF+4+Block`) Toasty Fix:** Fixed a false-positive where Cyrax's EX Bomb triggered Dan Forden's Toasty popup under 100% Toasty mode. Overhauled `IsFighterExecutingUppercut()` and `ClassifySpecialOrSuper()` in `combat_state.cpp` with strict `actionID == 0x20` (`Attack2Down`), script package matching, and animation symbol filtering (`IsD2SymbolName`), ensuring EX Specials never trigger Toasty.
+* **Kung Lao D+2 Toasty Boost Early Input Crash Fix:** Fixed a game crash occurring when executing an immediate Toasty Boost right after Kung Lao's D+2 Uppercut. Replaced fragile match frame counter debouncing with a safe 60-frame `g_CurrentFrame` debounce window and guarded re-entrancy in `toasty_training.cpp`.
+
+### 4. [PRACTICE AUTOMATION] In-Engine Vanilla Super Meter Synchronization
+* **Dynamic Vanilla Pause Menu Sync:** Synchronized mod meter overrides with native engine bitfield `0x00E8DF64` (bit `0x02`) and `0x00E0B8D8`. When the in-game Practice Pause Menu option **`SUPER METER`** is set to **`FULL`**, the ImGui overlay detects the engine override, locks manual controls, and displays an in-engine badge. Switching back to **`NORMAL`** dynamically restores full manual slider control without needing to reload.
+
+### 5. [HOTKEYS & INPUT] Free Camera Hotkey Isolation
+* **Moved to `VK_OEM_MINUS`:** Free Camera toggle is now mapped exclusively to **`VK_OEM_MINUS`** (main keyboard `-` key), removing `VK_SUBTRACT` (Numpad `-`) from the camera toggle logic.
+* **Input Isolation:** Removed `'4'` from P1 `IN_BTN_BK` and `VK_SUBTRACT` from P2 `IN_BTN_STANCE` in `input_recording.cpp`, preserving `VK_4` and `VK_SUBTRACT` strictly for P1/P2 Select.
+
+### 6. [PRACTICE & TOASTY] 100% Toasty Uppercut Combo Scaling Fix
+* **Removed Minimum Damage Threshold:** D+2 Uppercuts executed at the end of long juggle combos (where damage scaling lowers base damage) now reliably trigger Toasty for both P1 and P2 without getting blocked by damage threshold checks.
+
+### 7. [REVERSAL ENGINE] Dual-Side Player Assignment (P1 & P2 Dummies)
+* **Dynamic Defender Tracking:** Refactored Reversal Engine tracking from hardcoded Player 2 checks to dynamic defender tracking (`m_Def_WasInBlockstun`, `m_Def_WasInHitstun`, `m_Def_WasInKnockdown`) keyed by `ReversalEngine::Get().GetTargetPlayer()`. Reversals, wakeups, and rolls function smoothly regardless of which fighter is assigned as the training dummy.
+
+### 8. [SIMULATION SUITE] Mode 20: Crouching Normal Diagnostics
+* **Crouching Attack Analysis Suite:** Added Diagnostic Mode 20 in `simulation.cpp` with `F1`-`F4` macro triggers for comprehensive low attack labbing:
+  * **`[F1] D+1`**: Crouching Jab (`S + T`)
+  * **`[F2] D+2`**: Uppercut (`S + U`)
+  * **`[F3] D+3`**: Crouching Shin Kick (`S + G`)
+  * **`[F4] D+4`**: Crouching Poke (`S + J`)
+* Measures live Startup, Active, and Recovery frame telemetry and validates exact reaction IDs (`rx_id`) and script function classification.
 
 ---
 
@@ -271,9 +316,6 @@ Configure independent priority rules under `Extras > Move Priority` (all OFF by 
 | **= (Equals)** | Step 1 Frame Forward (while paused) |
 | **F9** | Toggle Real-Time Frame Data Visualizer HUD *(Experimental)* |
 | **F10** | Cycle Video Display Mode (Borderless / Windowed / Fullscreen) |
-| **F11** | Toggle Native Trade Engine Fix / Vanilla MK9 |
-| **Shift + F7** | Toggle Player 1 Negative Edge (Release Check) ON / OFF |
-| **Shift + F8** | Toggle Player 2 Negative Edge (Release Check) ON / OFF |
 
 ### Diagnostic Macro Test Suites (Practice Mode / Keyboard Controls)
 * **Mode 1: Normal Timing Suite** (F1-F5: 0f, +1f, +2f FP trade intervals; F8: Low kick trade)
@@ -330,7 +372,7 @@ Press **`~` (Tilde)** at any time during gameplay or practice mode to access the
 ## Verification & Integrity
 
 * **File:** `dinput8.dll` (x86 release binary)
-* **SHA-256:** `272A7D626A76B888BECE17EFC17AA27EC72A2D3C4DE1DD1AE4489EDD6862A1A7`
+* **SHA-256:** `4F1C0E6AE28970A84E4EEC5E47AECAA375FBC750E422CC41EC78EBE03A62DD3E`
 
 ---
 
