@@ -1,4 +1,4 @@
-# MK9 Native Physical Trade Engine Mod (v0.6707b)
+# MK9 Native Physical Trade Engine Mod (v0.6709)
 **Author:** Fai Khozen  
 **Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
 **Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
@@ -12,6 +12,70 @@
 > Both the **3D Hitbox/Collision Visualizer** and the **Frame Data Timeline & Advantage Bar (F9)** are **experimental algorithmic estimates and approximations**; they are **NOT 100% frame-perfect or pixel-perfect accurate**.
 > * **3D Collision Wireframes:** Approximated using skeletal bone transforms and heuristic bounding volumes (spheres, boxes, cylinders) rendered through native UE3 debug primitives.
 > * **Frame Data Timeline & Advantage:** Dynamically calculated from live engine animation clocks, state flags, and memory timing heuristics rather than static developer frame tables. They serve as valuable real-time labbing references, but slight discrepancies can occur across complex cancels and multi-hit strings.
+
+---
+
+## What's New in v0.6709 (Changelog Since v0.6707d)
+
+### 1. [DISPLAY & PRACTICE] Stage Background Void Mode & Chroma Green Screen
+* **Complete Stage Environment Suppression:** Introduced an interactive D3D9 hook filter that suppresses all static environment meshes, background actors, and scenery geometry, isolating fighters on a clean void plane for maximum framerate stability, zero visual clutter, and video editing / labbing capture.
+* **Interactive Chroma Keying Palette:**
+  * **Chroma Key Presets:** Instant one-click selection for **Pure Black** (`#000000`), **Chroma Green** (`#00FF00`), **Blue Screen** (`#0033FF`), and **Magenta** (`#FF00FF`).
+  * **Interactive Color Wheel:** Full RGB color picker wheel allowing creators to tune any background color for chroma keying in OBS, Premiere, or DaVinci Resolve.
+
+### 2. [VISUAL LABBING] 3D Floor Perspective Grid & Native Stage Wall Boundaries
+* **Perspective 3D Floor Grid:**
+  * Renders a clean 3D perspective floor grid onto the fighting stage plane with distance intervals and lateral grid divisions.
+  * **Customizable Palette:** Interactive color wheel for grid lines with quick presets (Cyan, Matrix Green, Sunset Gold, White).
+  * **Center Division Lines ($u=0, v=0$):** Dedicated center line colorization (Pure White default, Gold) to visually mark exact stage center and lateral distance.
+* **Native Stage Wall Boundaries (Corner Laser Walls):**
+  * Accurately extracts dynamic stage limits from internal Unreal Engine bounds registers (`0x00DF0BE4` / `0x00DF0C20`).
+  * Renders authentic vertical boundary laser walls at the exact corner limits ($X = \pm\text{halfWidth}$), dynamically adapting to both standard and wide stages.
+  * Configurable wall colors (Crimson Warning Red, Hazard Orange, Gold, Cyan).
+
+### 3. [GRAPHICS & RENDERING] Translucent VFX, Fireball & Magic Blast Preservation
+* **Strict Destination Blending Pipeline Check:**
+  * Resolved an issue where disabling the background inadvertently suppressed translucent projectiles and energy assets (e.g. Reptile's Forceball, Liu Kang's Dragon Fireball, Sub-Zero's Ice Ball, Ermac's telekinetic blasts).
+  * Implemented strict destination blending validation:
+    $$\text{alphaBlend} == \text{true} \quad \land \quad \text{destBlend} > \text{D3DBLEND\_ZERO}$$
+  * Ensures all translucent and additive particle effects, magic beams, fireballs, and energy trails render with authentic vibrancy while opaque stage geometry remains cleanly suppressed.
+
+### 4. [LIGHTING & CINEMATICS] Shang Tsung Soul Steal Stage Reveal & Lighting Probe Engine
+* **Real-Time Soul Steal Move Detection:**
+  * Authoritatively tracks Shang Tsung's Soul Steal move (`p_shangtsung_soul_steal`, `Supermove_Soul_Steal`) and detects when the move connects/hits the opponent (victim in `0x4600` / `Supermove_Soul_Steal_Reaction_Out`).
+  * **Dynamic Stage Reveal:** Force-enables the stage background for the entire duration of the move, ensuring green soul tendrils, particle lighting, and transformation cinematics render against authentic environment lighting.
+* **Fighter Ambient Lighting Probe Warmup Engine:**
+  * Solved the issue of characters turning pitch-black upon training mode position resets or morphing under Void Mode.
+  * Unreal Engine 3 bakes character lighting from stage probes during an adjustable **Step 1 Warmup Delay** (default **15 frames**) before re-engaging Void Mode.
+  * **Pause-Guarded Counter:** Warmup frames are only consumed during active gameplay frames, preventing starvation in pause menus.
+  * **Interactive Warmup Controls:** Slider (15 to 300 frames), quick buttons (`15F Default`, `30F`, `60F`, `90F`), manual `[ Refresh Character Lighting (Warmup Now) ]` trigger, and live real-time status indicator.
+
+### 5. [UI & WORKFLOW] Visualizer Hierarchy Reordering
+* Relocated **Stage Background & Floor Grid (Void Mode)** in the "3D Visualizer & Display" tab to appear directly beneath the **UE3 Native 3D Collision Visualizer (Accurate)** for intuitive labbing and presentation workflow.
+
+---
+
+## What's New in v0.6707d (Changelog Since v0.6707c)
+
+### 1. [TOASTY & PRACTICE] Strict D+2 Uppercut-Only Toasty Trigger Isolation
+* **Special Move & False Positive Elimination:** Completely eliminated false-positive Toasty boosts where Sektor's Teleport Uppercut (`teleport_uppercut`), Cyrax's bombs, and generic crouch normals (`d+1`, `d+3`, `d+4`) could trigger Dan Forden's 100% Toasty Boost.
+* **Three-Layer Uppercut Isolation Guard:**
+  * **`toasty_training.cpp` (`OnAttackHit`):** Removed independent unvalidated `IsFighterExecutingUppercut()` call that bypassed special move filters; hit evaluation now strictly obeys `isUppercut` and executes an explicit `ClassifySpecialOrSuper()` check.
+  * **`engine_common.cpp` (`IsD2SymbolName`):** Stripped bare substrings (`"uppercut"`, `"upper_cut"`) that caught special move animation symbols; restricted strictly to true d+2 action signatures (`attack2down`, `duck_attack2`, `crouch_attack2`, `duck_bp`, `crouch_bp`, `d_bp`, `attack2d`, `atk2d`).
+  * **`combat_state.cpp` (`IsFighterExecutingUppercut`):** Added native engine flags verification (`+0x2EC` bit `0x200` special move vs `0x400` normal attack), immediately excluding special moves across all callers.
+
+---
+
+## What's New in v0.6707c (Changelog Since v0.6707b)
+
+### 1. [REVERSE ENGINEERING & COLLISION] Native PLAYER_COL_INFO Combat Pipeline Integration
+* **Authoritative Engine Collision Data:** Reverse-engineered NetherRealm's internal combat collision subsystem in `MKKE.exe` (`0x008B0CD0`, `0x008B0910`, `0x008B1080`, `0x008AF9E0`, `0x008AFEB0`).
+* **True Fighter Bounding Envelopes:**
+  * **Pushbox Volumes:** Reading live pushbox entries directly from `colInfo + 0x1C` (with per-character radius scale at `+0x18C`) calculated by `Combat_CalculatePushboxPenetrationDepth` (`0x008B1080`).
+  * **Hurtbox Volumes:** Hooked the native skeletal hurtbox array at `*(colInfo + 0x18)` populated by the engine bone updater (`0x008AF910`).
+  * **Strike Hitbox Volumes:** Live attack sphere traversal directly from `*(colInfo + 0x14)` populated per-frame by script natives (`0x00446BE0` / `0x008AFF90` / `0x008B0360`).
+  * **Connecting Hit Persistence:** Preserves connecting strike volumes and exact contact points (`0x00DF0BAC`, `0x00DF0BC4`) upon successful hit registration.
+* **Ghidra Bridge Server Port Update:** Reconfigured bridge tools and automation scripts (`GhidraAutoBridgeServer_MK9.java`, `StopGhidraBridgeServer_MK9.java`, `ghidra_client.py`) to port `7077` to prevent local port conflicts.
 
 ---
 
