@@ -1,0 +1,8 @@
+asi_dependency.cpp
+   Creating library tests\asi_dependency.lib and object tests\asi_dependency.exp
+asi_fixture.cpp
+   Creating library tests\asi_fixture.lib and object tests\asi_fixture.exp
+asi_host.cpp
+asi_loader.cpp
+Generating Code...
+PASS: ASI dependency loading, stable working directory during plugin initialization, readiness, failure reporting, and one-time initialization.

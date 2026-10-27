@@ -1,510 +1,112 @@
-# MK9 Native Physical Trade Engine Mod (v0.6709)
-**Author:** Fai Khozen  
-**Target:** Mortal Kombat 9 (Komplete Edition) - PC (Steam / DiscContentPC)  
-**Support / Donate:** [Ko-fi](https://ko-fi.com/faikhozen) (https://ko-fi.com/faikhozen)  
-**Bug Reporting:** [X/Twitter](https://x.com/faikhozen) (https://x.com/faikhozen)
-
-> [!NOTE]
-> **AI Assistance Disclosure:** This project was developed and reverse-engineered with the assistance of AI pair-programming tools for low-level memory analysis, disassembly tracing, and native hook orchestration.
-
-> [!WARNING]
-> **EXPERIMENTAL VISUALIZERS DISCLAIMER (ESTIMATES ONLY):**  
-> Both the **3D Hitbox/Collision Visualizer** and the **Frame Data Timeline & Advantage Bar (F9)** are **experimental algorithmic estimates and approximations**; they are **NOT 100% frame-perfect or pixel-perfect accurate**.
-> * **3D Collision Wireframes:** Approximated using skeletal bone transforms and heuristic bounding volumes (spheres, boxes, cylinders) rendered through native UE3 debug primitives.
-> * **Frame Data Timeline & Advantage:** Dynamically calculated from live engine animation clocks, state flags, and memory timing heuristics rather than static developer frame tables. They serve as valuable real-time labbing references, but slight discrepancies can occur across complex cancels and multi-hit strings.
-
----
-
-## What's New in v0.6709 (Changelog Since v0.6707d)
-
-### 1. [DISPLAY & PRACTICE] Stage Background Void Mode & Chroma Green Screen
-* **Complete Stage Environment Suppression:** Introduced an interactive D3D9 hook filter that suppresses all static environment meshes, background actors, and scenery geometry, isolating fighters on a clean void plane for maximum framerate stability, zero visual clutter, and video editing / labbing capture.
-* **Interactive Chroma Keying Palette:**
-  * **Chroma Key Presets:** Instant one-click selection for **Pure Black** (`#000000`), **Chroma Green** (`#00FF00`), **Blue Screen** (`#0033FF`), and **Magenta** (`#FF00FF`).
-  * **Interactive Color Wheel:** Full RGB color picker wheel allowing creators to tune any background color for chroma keying in OBS, Premiere, or DaVinci Resolve.
-
-### 2. [VISUAL LABBING] 3D Floor Perspective Grid & Native Stage Wall Boundaries
-* **Perspective 3D Floor Grid:**
-  * Renders a clean 3D perspective floor grid onto the fighting stage plane with distance intervals and lateral grid divisions.
-  * **Customizable Palette:** Interactive color wheel for grid lines with quick presets (Cyan, Matrix Green, Sunset Gold, White).
-  * **Center Division Lines ($u=0, v=0$):** Dedicated center line colorization (Pure White default, Gold) to visually mark exact stage center and lateral distance.
-* **Native Stage Wall Boundaries (Corner Laser Walls):**
-  * Accurately extracts dynamic stage limits from internal Unreal Engine bounds registers (`0x00DF0BE4` / `0x00DF0C20`).
-  * Renders authentic vertical boundary laser walls at the exact corner limits ($X = \pm\text{halfWidth}$), dynamically adapting to both standard and wide stages.
-  * Configurable wall colors (Crimson Warning Red, Hazard Orange, Gold, Cyan).
-
-### 3. [GRAPHICS & RENDERING] Translucent VFX, Fireball & Magic Blast Preservation
-* **Strict Destination Blending Pipeline Check:**
-  * Resolved an issue where disabling the background inadvertently suppressed translucent projectiles and energy assets (e.g. Reptile's Forceball, Liu Kang's Dragon Fireball, Sub-Zero's Ice Ball, Ermac's telekinetic blasts).
-  * Implemented strict destination blending validation:
-    $$\text{alphaBlend} == \text{true} \quad \land \quad \text{destBlend} > \text{D3DBLEND\_ZERO}$$
-  * Ensures all translucent and additive particle effects, magic beams, fireballs, and energy trails render with authentic vibrancy while opaque stage geometry remains cleanly suppressed.
-
-### 4. [LIGHTING & CINEMATICS] Shang Tsung Soul Steal Stage Reveal & Lighting Probe Engine
-* **Real-Time Soul Steal Move Detection:**
-  * Authoritatively tracks Shang Tsung's Soul Steal move (`p_shangtsung_soul_steal`, `Supermove_Soul_Steal`) and detects when the move connects/hits the opponent (victim in `0x4600` / `Supermove_Soul_Steal_Reaction_Out`).
-  * **Dynamic Stage Reveal:** Force-enables the stage background for the entire duration of the move, ensuring green soul tendrils, particle lighting, and transformation cinematics render against authentic environment lighting.
-* **Fighter Ambient Lighting Probe Warmup Engine:**
-  * Solved the issue of characters turning pitch-black upon training mode position resets or morphing under Void Mode.
-  * Unreal Engine 3 bakes character lighting from stage probes during an adjustable **Step 1 Warmup Delay** (default **15 frames**) before re-engaging Void Mode.
-  * **Pause-Guarded Counter:** Warmup frames are only consumed during active gameplay frames, preventing starvation in pause menus.
-  * **Interactive Warmup Controls:** Slider (15 to 300 frames), quick buttons (`15F Default`, `30F`, `60F`, `90F`), manual `[ Refresh Character Lighting (Warmup Now) ]` trigger, and live real-time status indicator.
-
-### 5. [UI & WORKFLOW] Visualizer Hierarchy Reordering
-* Relocated **Stage Background & Floor Grid (Void Mode)** in the "3D Visualizer & Display" tab to appear directly beneath the **UE3 Native 3D Collision Visualizer (Accurate)** for intuitive labbing and presentation workflow.
-
----
-
-## What's New in v0.6707d (Changelog Since v0.6707c)
-
-### 1. [TOASTY & PRACTICE] Strict D+2 Uppercut-Only Toasty Trigger Isolation
-* **Special Move & False Positive Elimination:** Completely eliminated false-positive Toasty boosts where Sektor's Teleport Uppercut (`teleport_uppercut`), Cyrax's bombs, and generic crouch normals (`d+1`, `d+3`, `d+4`) could trigger Dan Forden's 100% Toasty Boost.
-* **Three-Layer Uppercut Isolation Guard:**
-  * **`toasty_training.cpp` (`OnAttackHit`):** Removed independent unvalidated `IsFighterExecutingUppercut()` call that bypassed special move filters; hit evaluation now strictly obeys `isUppercut` and executes an explicit `ClassifySpecialOrSuper()` check.
-  * **`engine_common.cpp` (`IsD2SymbolName`):** Stripped bare substrings (`"uppercut"`, `"upper_cut"`) that caught special move animation symbols; restricted strictly to true d+2 action signatures (`attack2down`, `duck_attack2`, `crouch_attack2`, `duck_bp`, `crouch_bp`, `d_bp`, `attack2d`, `atk2d`).
-  * **`combat_state.cpp` (`IsFighterExecutingUppercut`):** Added native engine flags verification (`+0x2EC` bit `0x200` special move vs `0x400` normal attack), immediately excluding special moves across all callers.
-
----
-
-## What's New in v0.6707c (Changelog Since v0.6707b)
-
-### 1. [REVERSE ENGINEERING & COLLISION] Native PLAYER_COL_INFO Combat Pipeline Integration
-* **Authoritative Engine Collision Data:** Reverse-engineered NetherRealm's internal combat collision subsystem in `MKKE.exe` (`0x008B0CD0`, `0x008B0910`, `0x008B1080`, `0x008AF9E0`, `0x008AFEB0`).
-* **True Fighter Bounding Envelopes:**
-  * **Pushbox Volumes:** Reading live pushbox entries directly from `colInfo + 0x1C` (with per-character radius scale at `+0x18C`) calculated by `Combat_CalculatePushboxPenetrationDepth` (`0x008B1080`).
-  * **Hurtbox Volumes:** Hooked the native skeletal hurtbox array at `*(colInfo + 0x18)` populated by the engine bone updater (`0x008AF910`).
-  * **Strike Hitbox Volumes:** Live attack sphere traversal directly from `*(colInfo + 0x14)` populated per-frame by script natives (`0x00446BE0` / `0x008AFF90` / `0x008B0360`).
-  * **Connecting Hit Persistence:** Preserves connecting strike volumes and exact contact points (`0x00DF0BAC`, `0x00DF0BC4`) upon successful hit registration.
-* **Ghidra Bridge Server Port Update:** Reconfigured bridge tools and automation scripts (`GhidraAutoBridgeServer_MK9.java`, `StopGhidraBridgeServer_MK9.java`, `ghidra_client.py`) to port `7077` to prevent local port conflicts.
-
----
-
-## What's New in v0.6707b (Changelog Since v0.6707a)
-
-### 1. [PRACTICE MODE] Directional Quick Position Resets (P1 & P2 Keyboard + Gamepad)
-* **P1 Keyboard Select (`VK_4` / `'4'`, `0x34`):** Fixed an issue where keyboard reset only responded to `VK_BACK` (Backspace). Fully enabled native P1 Select on the number row (`VK_4`).
-* **P2 Keyboard Select (`VK_SUBTRACT` / Numpad `-`, `0x6D`):** Integrated P2 default Select key into the position reset system so P2 keyboard players have full access to training presets.
-* **Strict Attack Key Isolation:** Added explicit key state validation ensuring `VK_NUMPAD4` (P2 Front Kick) will never accidentally trigger a position reset.
-* **Native Match Reset Hook (`TriggerNativePracticeReset`):** Hooks internal engine reset function `0x00903CD0` (`ResetForPractice`) on `0x00E8DF64` so keyboard resets cleanly clear damage info, combo counters, health values, and active move animations in full parity with gamepads.
-* **Stage Corner & Swapped Presets:**
-  * **Select Alone (Neutral):** Standard Center (`P1: -120.0f, P2: +120.0f`).
-  * **Left + Select (`A` / `Left Arrow`):** Left Corner Wall (`P1: -1140.0f, P2: -1300.0f`).
-  * **Down + Left + Select (`S` + `A` / `Down` + `Left Arrow`):** Left Corner Swapped (`P1: -1300.0f, P2: -1140.0f`).
-  * **Right + Select (`D` / `Right Arrow`):** Right Corner Wall (`P1: +1140.0f, P2: +1300.0f`).
-  * **Down + Right + Select (`S` + `D` / `Down` + `Right Arrow`):** Right Corner Swapped (`P1: +1300.0f, P2: +1140.0f`).
-  * **Down + Select (`S` / `Down Arrow`):** Center Swapped (`P1: +120.0f, P2: -120.0f`).
-
-### 2. [LIGHTING & STABILITY] Void Mode Character Lighting Preservation on Reset
-* **Lighting Probe Warmup Engine (`TriggerLightingProbeWarmup`):** Fixed a bug where resetting or teleporting fighters during **"Disable Background (Void Mode)"** broke character lighting probes, causing models to turn pitch-black or incorrectly shaded. The engine detects lateral position jumps and automatically refreshes Unreal Engine 3's native lighting cache and skeletal mesh render transforms (`0x00785370`), preserving clean lighting across all resets.
-
-### 3. [CHARACTER FIXES] Cyrax EX Bomb & Kung Lao Toasty Crash Fix
-* **Cyrax EX Bomb / EX Box (`BBF+4+Block`) Toasty Fix:** Fixed a false-positive where Cyrax's EX Bomb triggered Dan Forden's Toasty popup under 100% Toasty mode. Overhauled `IsFighterExecutingUppercut()` and `ClassifySpecialOrSuper()` in `combat_state.cpp` with strict `actionID == 0x20` (`Attack2Down`), script package matching, and animation symbol filtering (`IsD2SymbolName`), ensuring EX Specials never trigger Toasty.
-* **Kung Lao D+2 Toasty Boost Early Input Crash Fix:** Fixed a game crash occurring when executing an immediate Toasty Boost right after Kung Lao's D+2 Uppercut. Replaced fragile match frame counter debouncing with a safe 60-frame `g_CurrentFrame` debounce window and guarded re-entrancy in `toasty_training.cpp`.
-
-### 4. [PRACTICE AUTOMATION] In-Engine Vanilla Super Meter Synchronization
-* **Dynamic Vanilla Pause Menu Sync:** Synchronized mod meter overrides with native engine bitfield `0x00E8DF64` (bit `0x02`) and `0x00E0B8D8`. When the in-game Practice Pause Menu option **`SUPER METER`** is set to **`FULL`**, the ImGui overlay detects the engine override, locks manual controls, and displays an in-engine badge. Switching back to **`NORMAL`** dynamically restores full manual slider control without needing to reload.
-
-### 5. [HOTKEYS & INPUT] Free Camera Hotkey Isolation
-* **Moved to `VK_OEM_MINUS`:** Free Camera toggle is now mapped exclusively to **`VK_OEM_MINUS`** (main keyboard `-` key), removing `VK_SUBTRACT` (Numpad `-`) from the camera toggle logic.
-* **Input Isolation:** Removed `'4'` from P1 `IN_BTN_BK` and `VK_SUBTRACT` from P2 `IN_BTN_STANCE` in `input_recording.cpp`, preserving `VK_4` and `VK_SUBTRACT` strictly for P1/P2 Select.
-
-### 6. [PRACTICE & TOASTY] 100% Toasty Uppercut Combo Scaling Fix
-* **Removed Minimum Damage Threshold:** D+2 Uppercuts executed at the end of long juggle combos (where damage scaling lowers base damage) now reliably trigger Toasty for both P1 and P2 without getting blocked by damage threshold checks.
-
-### 7. [REVERSAL ENGINE] Dual-Side Player Assignment (P1 & P2 Dummies)
-* **Dynamic Defender Tracking:** Refactored Reversal Engine tracking from hardcoded Player 2 checks to dynamic defender tracking (`m_Def_WasInBlockstun`, `m_Def_WasInHitstun`, `m_Def_WasInKnockdown`) keyed by `ReversalEngine::Get().GetTargetPlayer()`. Reversals, wakeups, and rolls function smoothly regardless of which fighter is assigned as the training dummy.
-
-### 8. [SIMULATION SUITE] Mode 20: Crouching Normal Diagnostics
-* **Crouching Attack Analysis Suite:** Added Diagnostic Mode 20 in `simulation.cpp` with `F1`-`F4` macro triggers for comprehensive low attack labbing:
-  * **`[F1] D+1`**: Crouching Jab (`S + T`)
-  * **`[F2] D+2`**: Uppercut (`S + U`)
-  * **`[F3] D+3`**: Crouching Shin Kick (`S + G`)
-  * **`[F4] D+4`**: Crouching Poke (`S + J`)
-* Measures live Startup, Active, and Recovery frame telemetry and validates exact reaction IDs (`rx_id`) and script function classification.
-
----
-
-## What's New in v0.6707a (Changelog Since v0.6706a)
-
-### 1. [PRACTICE AUTOMATION] Super Meter Management (Normal / Full / Refill)
-Added dedicated super meter automation to both the **Recording** and **Reversal** practice tabs:
-* **NORMAL Mode:** Standard match meter behavior and natural meter gain/loss.
-* **FULL Mode:** Continuously locks and maintains 100% full super meter (3 bars) for both players for continuous special move labbing.
-* **REFILL Mode:** When Player 1 or Player 2 stays idle without attacking for **4.0 seconds (240 frames)**, the engine automatically restores their super meter back to 100%, allowing fluid combo practice without manual menu resets.
-
-### 2. [PRACTICE AUTOMATION] Auto-Block & Strict Combo Link Verification
-* **Stand & Crouch Auto-Block:** In Reversal Mode, setting dummy stance to Auto-Block allows the initial attack to hit (confirming combo initiation) and then automatically locks the dummy into continuous guard (Stand Guard or Crouch Guard) across all subsequent hits until the attacker stops attacking for **2.0 seconds (120 frames)**, after which guard is cleanly released.
-* **Strict True-Combo Tracking:** Strengthened combo link verification to distinguish true unblockable hitstun from soft stumble states (`0x4600`), false recovery frames, and actionable guard windows, preventing false combo counter increments on blockable hits.
-
-### 3. [FIX] Counter Engine & Hitstun Recovery Synchronization
-* **Additive Frame Advantage Scaling:** Fixed an issue where hitstun modifications truncated moves with naturally long authored hitstun down to a static 16-frame baseline. Standing hitstun extensions are now strictly additive on top of native advantage ($+6 \text{ normal} + 9 \text{ extra} = \mathbf{+15}$ on Counter Hit; $+6 \text{ normal} + 19 \text{ extra} = \mathbf{+25}$ on Punish Counter).
-* **Live Gameplay Reaction Timer Priority:** Prioritized live gameplay reaction timers (`*(float*)(pChar + 0x2F0) * 60.0f`) over raw 3D sequence keyframe lengths (`+0x70` in `UAnimSequence`) to guarantee exact frame sync between animation speed and hitbox recovery.
-* **Startup Threshold Resolution (`ResolveMoveStartupFrames`):** Added a move startup evaluator inspecting both live lifecycle timers and the native attack token table (e.g., D+1 = 6f, FP = 9f, F+3 = 15f, BK = 21f) so fast attacks ($\le 5$f) respect minimum startup thresholds (default 16f in Dramatic Mode) and execute as clean normal hits.
-
-### 4. [STABILITY] Character Select Screen & DLC Package Crash Guards
-* **Guard 7 (Async Package Listener & Refcount Guards):** Patched NULL pointer access violations at `0x006A4D70`, `0x006A82A0`, `0x006A83A0`, and `0x006A4EB0` that occurred when hovering or selecting DLC characters (Kratos, Skarlet, Kenshi, Rain, Freddy Krueger).
-* **Guard 8 (DLC Registry & File Presence Validator):** Added dynamic DLC registry hooks (`0x00888000`, `0x00888630`, `0x00888720`, `0x00887C30`, `0x00887C80`) and automatic disk validation (`HasKratosFiles()`) so Kratos is selectable only when his `.xxx` asset packages exist on disk, preventing broken/invisible selections while maintaining 100% crash-free stability on standard PC installations.
-
-### 5. [ENGINE] Continuous Linear Block Pushback & Camera Anti-Drift Engine
-* **Linear Block Pushback (`s_BlockPushback`):** Replaced velocity-only scaling with per-frame continuous lateral position scaling and corner pushback reflection (`0x00433580` `SetLocation` / `0x00785370` `UpdateRenderTransform`).
-* **Camera 2 Anti-Drift Fix:** Eliminated compounding camera yaw accumulation and wild spins across multi-pass rendering ticks by stripping previous offsets from raw engine pointers and gating smoothing strictly per frame.
-
-### 6. [GRAPHICS & DISPLAY] Resolution Carousel Glitch Fix & Custom Toasty Alignment
-* **Resolution Carousel Glitch Fix:** Patched resolution index clamping (`0x00880B40` - `0x00880C20`) to prevent memory corruption when cycling 4:3 resolutions (800x600, 1024x768, 1280x960, 1400x1050, 1600x1200).
-* **Dynamic Toasty Custom Sizing & Viewport Corners:** Added custom width/height sliders, 4-corner positioning (Top-Left, Top-Right, Bottom-Left, Bottom-Right), dynamic aspect-ratio alignment, and optional randomized scaling.
-
-### 7. [ENGINE] Jump Input Buffering & Fast Engine Loading
-* **Jump Input Buffering:** Strict jump priority evaluation ensuring up/up-forward/up-back commands register reliably without falling through to grounded moves.
-* **Fast Engine Loading (`load_profiler.cpp`):** Replaced busy-waiting load hooks with async thread monitoring to eliminate loading screen stutter.
-
-### 8. [VISUALS & CONTENT CREATION] Stage Background Removal (Void Mode / Green Screen) & 3D Floor Grid
-* **Disable Stage Background (Void Mode):** Suppresses static and environment stage geometry, meshes, background scenery, decals, and skybox rendering in real-time via low-level DirectX 9 pipeline interception, leaving fighters on a clean void stage plane.
-* **Custom Background Color & Green/Blue Screen Presets:** Built-in RGB color picker plus quick preset buttons for **Pure Black**, **Green Screen (0, 1, 0)**, **Blue Screen**, and **Magenta** for video creators and chroma-key editing.
-* **3D Perspective Floor Training Grid:** Optional perspective stage grid overlay with distance markers and center lines for spatial distancing and spacing reference.
-* **Disable Blood (No Blood):** Clean tournament mode suppressing all hit blood splats, sprays, smears, and ground pooling (Versus Kode 909-909).
-
----
-
-## What's New in v0.6706a (Changelog Since v0.6705c)
-
-### 1. [FEATURE] Trade Fix Engine Extension & Extended Combat Controls
-Expanded the core physical clash and trade resolution subsystem with deep combat modifiers:
-* **Dynamic Hitstun & Clash Modifiers:** Adds configurable extra hitstun on **Counter Hits** (startup interrupts) and **Fatal Punishes** (recovery interrupts) to reward offensive reads and frame traps.
-* **Real-Time Hit Indication HUD:** Renders dynamic on-screen alerts (`COUNTER HIT`, `FATAL PUNISH`, `TRADE`) on successful clash and punish confirmations.
-* **Dramatic Clash & Dynamic Camera System:** Seamless camera integration during high-impact trade/counterhit/punish events:
-  * **Preset Cam 1 (FOV Dynamic Close-Up):** Smooth cinematic FOV glide on impact (e.g. -6.0° close-up), automatically restoring baseline FOV upon recovery.
-  * **Preset Cam 2 (Over-the-Shoulder Angled Perspective):** Moves camera position laterally toward the attacker (`Shift Y`) while turning the rotation angle (`Yaw`) toward the defender for a broadcast clash angle.
-  * **General Slow-Motion Integration:** Option to scale animation rates during camera adjustment (e.g. 0.80x slow-mo) with smooth recovery.
-  * **Camera 2 Anti-Drift Engine:** Eliminated compounding yaw accumulation and wild camera spins across multi-pass rendering ticks by stripping previous offsets from raw engine pointers and gating smoothing strictly per frame.
-  * **Intelligent Recovery Tracking:** Automatically tracks defender knockdown, launch, roll, and getup, smoothly releasing back to normal match view.
-* **Block Pushback & Reaction Synchronization:** Synchronized native reaction timers (+0x2F0) with added hitstun/blockstun frames and customizable block pushback.
-
-### 2. [FEATURE] Combat Meter Economy (Expenditure & Generation Gains)
-Expanded the Extras menu with advanced super meter economy customization:
-* **Special Move Expenditure:** Optional super meter cost deducted upon raw special move execution (e.g. -25.0% / -0.250).
-* **Normal to Special Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into special moves (e.g. -10.0% / -0.100).
-* **Normal to Dash Cancel Cost:** Optional super meter cost deducted when canceling normal attacks into forward or backward dashes (e.g. -10.0% / -0.100).
-* **Combat Meter Generation (Gains):**
-  * **Attacker Hit Meter Gain:** Configurable flat super meter rewarded on landed strikes (with filter modes: All Moves, Normals Only, Specials Only).
-  * **Defender Block Meter Gain:** Configurable flat super meter rewarded on blocking attacks (meter-on-block).
-  * **Defender Hit Meter Gain:** Configurable super meter rewarded upon taking damage.
-  * **Counter Hit & Fatal Punish Meter Rewards:** Configurable flat bonus super meter awarded to Defender, Attacker, or Both.
-
-### 3. [FIX] Super Meter & EX Special Move Isolation
-* **EX Special Move Isolation:** Fixed an issue where EX special moves fell through to normal attack classification in `OnTick`, which erroneously triggered normal attack hit gains and standard special move meter deductions.
-* **Phantom Meter Refund Fix (29.7% -> 62.7%):** Fixed a bug where attempting an EX special move with insufficient meter armed the reversal refund tracker with 33.0% (despite 0 meter being deducted), resulting in an unexpected +33.0% meter bonus upon the next action.
-* **Taxonomy Classification:** Integrated active EX tracking into `ClassifySpecialOrSuper` in `combat_state.cpp` to guarantee that all EX specials (including unarmored projectiles like EX Fireball, EX Ice Ball) are properly classified as `MOVE_CLASS_EX_SPECIAL`.
-
-### 4. [FEATURE] Juggle Deterioration & Gravity Deterioration
-* Added dynamic combo juggle decay and gravity scaling per hit count to regulate juggle extensions and prevent infinite loops.
-
-### 5. [UI & PRESETS] User Presets & Configuration (Extras Tab)
-* 4 User Preset save/load slots (Slot 1 to Slot 4) with INI file import and export functionality.
-* Quick Preset buttons: **Apply Vanilla Preset (Default)**, **Apply Dramatic Mode (Cam 1 FOV)**, and **Dramatic Mode (Cam 2 Angled)**.
-* On-screen Move ID, animation state, and move name telemetry above super meter dials.
-
----
-
-## What's New in v0.6705b (Changelog Since v0.6705a)
-
-### 1. [CALIBRATION] 0-Frame Reversal After Damage Execution
-* **Instant First-Neutral-Frame Reversal:** Resolved an issue where configuring 0-frame delay on **Reversal After Damage** caused special moves (such as `D, B + 1`) to fail or drop into standard normal attacks (`0x5200`), requiring a 1-frame delay workaround.
-* **Elimination of Premature Transition Ticks:** Removed an eager sequence tick that fired on the hurt release transition frame (`0x4600/0x4700 -> 0x0000`). Frame 0 now begins execution cleanly on the very first actionable neutral frame, guaranteeing 100% reliable 0-frame reversals on standing (e.g., Kratos 3) and crouching (e.g., Kratos D+1) hits.
-
-### 2. [FIX] Delayed Wakeup & Delayed Wakeup Roll Recovery
-* **Early Down Pre-buffering:** Integrated immediate Down pre-buffering upon knockdown hit registration, holding the character down smoothly without default tech-roll fallback.
-* **Clean Neutral Disarm:** Speculative knockdown states automatically disarm when grounded hitstun finishes, preventing Down-holding from bleeding into standing/crouching hit recovery.
-* **UI Table Cleanup:** Dedicated table views for Block Reversals and Reversals After Damage strictly display relevant columns (Status, Action, Weight, Delay) without cluttering wakeup parameters.
-
-### 3. [FIX] Toasty 100% Uppercut in Scaled Combos
-* **Multi-Hit Pop-up Launcher Detection:** Scans the active move record buffer for pop-up launcher sub-states (`sub == 12 || atkType == 10 || atkType == 12`) to detect uppercuts even when deep inside combo strings.
-* **Scaled Damage Sensitivity:** Lowered the minimum damage evaluation threshold to `3%` (`0.03f`), ensuring Toasty easter egg boosts trigger reliably during heavily scaled combos.
-
----
-
-## What's New in v0.6705a (Changelog Since v0.6704e)
-
-### 1. [FEATURE] Custom Super Meter Expenditure (Extras Tab)
-Take complete control over Mortal Kombat 9's super meter economics with fully configurable costs and activation requirements:
-* **EX Special Move Cost:** Customize how much meter is required and burned for EX specials (configurable from `0.05` to `1.00`, Default: `0.25` / 25.0% — giving you 4 EX moves per full meter instead of the vanilla 3).
-* **Kombo Breaker Cost:** Adjust the meter needed to break out of enemy kombos (configurable from `0.05` to `1.00`, Default: `0.50` / 50.0% — giving you 2 breakers per full meter instead of 1).
-* **X-Ray Super Move Cost:** Configure the activation threshold and consumption for X-Ray super moves (configurable from `0.10` to `1.00`, Default: `1.00` / 100.0% — allowing X-Rays to be activated at less than full meter).
-* **Live Dynamic Percentage Sliders:** Interactive sliders in the console menu feature real-time color-coded percentage readouts that dynamically update as you drag.
-* **Precise Native Threshold Recalibration:** Replaces the engine's hardcoded `1.0` X-Ray requirements and native command buffer lookups (`0x008A9702`, `0x008A98AF`, `0x008A9E0E`) with an adaptive threshold and float precision epsilon tolerance (`-0.005f`), guaranteeing reliable activation at all custom cost levels.
-
-### 2. [FEATURE] Real-Time On-Screen Meter Percentage HUD Indicator
-* **High-Visibility Readout:** Renders each player's exact super meter level up to 1 decimal place (`XX.X%`) directly beside their respective meter dials at the bottom of the screen.
-* **Dynamic Readiness Colors:**
-  * **Glowing Cyan:** Meter $\ge$ X-Ray threshold (X-Ray Ready).
-  * **Emerald Green:** Meter $\ge$ Breaker threshold (Breaker Ready).
-  * **Amber Gold:** Meter $\ge$ EX threshold (EX Ready).
-  * **Muted Gray:** Below threshold.
-* **Startup Default:** Configured to **OFF by default on game launch**. Can be toggled on at any time under **Extras -> Super Meter System & Custom Expenditure** with customizable X/Y positioning sliders and a reset button.
-
-### 3. [FEATURE & FIX] Practice Dummy Recording & Playback System (Tab 2)
-* Added a full-featured frame-accurate input recording and playback engine accessible via Tab 2 ("Recording Settings").
-* Record custom player or dummy input sequences, save across multiple slots, and play back on loop or as a one-shot to practice anti-airs, test punish windows, and lab defensive gaps.
-* **Keyboard Recording & Playback Inconsistency Fix:**
-  * Fixed directional vs attack key conflict where `VK_NUMPAD4` and `VK_NUMPAD6` were polled as Left/Right walk keys while in MK9 PC they bind to Front Kick (3) and Back Kick (4), which previously caused playback to kick whenever walking.
-  * Properly mapped native Player 2 keyboard bindings (Arrow keys for movement; Numpad 7, 9, 4, 6 for 1, 2, 3, 4; Numpad 0 for Block; Numpad Decimal for Tag; Numpad Add for Stance).
-  * Expanded Player 1 keyboard recording polling to support standard layout (`W, A, S, D`, `U, I, J, K, L`, `1, 2, 3, 4`, Space).
-  * Dedicated directional key injection guaranteeing faithful, glitch-free keyboard playback.
-
-### 4. [FEATURE & FIX] Practice Dummy Reversal Engine (Tab 3)
-* Program the practice dummy to automatically execute immediate or delayed reversals out of:
-  * **Blockstun:** Reversal attack on block.
-  * **Hitstun (Reversal After Damage):** Reversal attack on hit.
-  * **Wakeup:** Invincible Wakeup or Regular Wakeup.
-* Supports customizable execution delays (0 to 30 frames) to test true blockstrings, frame traps, and meaty timing.
-* Selectable knockdown recovery methods: Normal Wakeup, Tech Roll / Quick Roll, Delayed Wakeup, and Delayed Wakeup Roll.
-* **Block Reversal & Crouch Block Calibration Fix:**
-  * Fixed an issue where idle crouching block (`0x0A00`) and idle standing block (`0x0A01`) were treated as active blockstun, causing block reversals to stall until an internal 30-frame ceiling expired.
-  * Differentiated active block reactions (`0x0A02..0x0A0F` or action lock) from idle blocking stances so block reversals trigger reliably on frame 1 of recovery.
-  * Maintained crouch block stance continuously during reversal delay intervals (`delayFrames > 0`) so the dummy never prematurely drops block during multi-hit blockstrings.
-* **Hit Reversal (After Damage) Fix:**
-  * Fixed an issue where hit reversals never triggered when the dummy was in crouch block or hit by crouching/low attacks.
-  * Removed premature hitstun cancellation on frame 1 caused by false block detection.
-  * Broadened hit reaction tracking from only `0x4600` (stand hurt) to all hurt states (`0x4000..0x4FFF`, including `0x4700` crouch hurt and `0x4100` low hurt).
-  * Excluded hurt states from `inAttackThread` so stun tracking is never erroneously wiped.
-
-### 5. [FEATURE & FIX] Knockdown & Wakeup Recovery Customization (Extras Tab)
-* **Disable Delayed Wakeup:** Suppresses holding Down on the floor; fighters always wake up on standard immediate timing (~32-38F).
-* **Fixed Delayed Wakeup Hold Duration:** Eliminates arbitrary ground release timing by locking the player into a predetermined duration (30F to 96F) once initiated.
-* **Disable Delayed Wakeup Roll:** Suppresses backward rolling when rising from delayed wakeup; character rises stationary in place.
-  * **Fix:** Suppressed Down-Away (`0x8000001F` / `0x1F`) and Up-Away (`0x80000027` / `0x27`) tokens so rolling cannot be initiated while holding Down-Back.
-  * Zeroed root motion velocity (`+0x2F74`) and anchored floor position upon roll remapping.
-  * Routed gamepad injection through controller input filters so dummy controller overrides cannot bypass roll suppression.
-
-### 6. [FEATURE] Free Camera & 3D Visualizer Subsystem (Tab 4)
-* Detachable 3D free camera allowing full 360-degree rotation, pan, zoom, and cinematic perspective inspection during matches and practice.
-* Native UE3 3D collision visualizer for real-time attack hitboxes, body hurtboxes, and character pushboxes *(experimental estimates)*.
-
-### 7. [UI] Streamlined 5-Tab In-Game Console Menu
-* Restructured the ImGui console menu (`~` key) into 5 focused master tabs:
-  * **Tab 1: Gameplay Fixes** (Ducking Bug Fix, Meter Drain Glitch Fix, Physical Trade Priority Fix, Negative Edge controls, Toasty Training).
-  * **Tab 2: Recording Settings** (Practice dummy recording & playback slots).
-  * **Tab 3: Reversal Settings** (Practice dummy reversal rules, recovery modes, execution delays).
-  * **Tab 4: 3D Visualizer & Display** (Native UE3 3D collision wireframes, 720p monitor lock, Free Camera, Frame Data timeline bar).
-  * **Tab 5: Extras** (Super Meter Custom Expenditure & Percentage HUD, Knockdown & Wakeup options, Modular Move Priority Hierarchy, Juggle Value & Gravity Deterioration).
-
----
-
-## Mod Features in General
-
-### 1. Physical Trade Engine & Simultaneous Strike Clashes
-In vanilla MK9, when two fighters attack simultaneously, the engine's internal anti-trade system (Stage 5) arbitrarily kills the second player's attack thread on frame 1, creating one-sided interrupts and preventing authentic fighting game trading. This mod intercepts the native combat pipeline to deliver:
-* **Limb vs Limb Trades:** Simultaneous jabs, pokes, kicks, and normals connect and trade damage/reactions symmetrically on active frames.
-* **50/50 Special Move Clashes:** When two physical specials collide during active frames (e.g., Sub-Zero slide vs Scorpion teleport punch), both connect with winner immunity protection to prevent broken double-hits.
-* **Natural Counter Hits:** Authentic counter-hit advantages when striking an opponent during their startup windup.
-* **Pure Physical Trade Mode:** When all move priority overrides are OFF (default), hits trade with 100% physical neutrality.
-
-### 2. Weapon Prop Clashing (Type A & Type B)
-* **Type A Props (Rigged Skeletal Weapons):** Full 3D collision clashing for direct bone-attached weapons (Scorpion swords, Kitana steel fans, Baraka arm blades, Sonya batons, Cyber Sub-Zero swords).
-* **Type B Props (Spawned Child Entities):** Real-time tracking and hitbox clashing for detached/attached weapon entities (Jade bo staff, Nightwolf tomahawks, Kenshi spirit sword, Mileena sai).
-* **Weapon vs Limb Clashing:** Authentic physical interactions when striking weapons against limbs or weapons against weapons.
-
-### 3. Modular Move Priority Hierarchy (Extras Tab)
-Configure independent priority rules under `Extras > Move Priority` (all OFF by default for pure trade mode):
-* **Uppercut (D+2) Anti-Air Priority:** D+2 cleanly beats incoming Jump-In attacks during active anti-air frames.
-* **Uppercut vs Special:** D+2 cleanly overpowers grounded special moves during active clash frames.
-* **Uppercut vs Uppercut:** Later inputted D+2 wins by default.
-* **Jump-In Attacks:** Jump-ins trade or cleanly beat grounded standing normals during active falling frames.
-* **X-Ray Absolute Priority:** Cinematic X-Ray super moves cleanly overpower incoming normal and special strikes.
-* **Instant Projectile Impacts:** Projectiles deal immediate damage/reactions on contact without artificial holding or passthrough glitches.
-
-### 4. Frame-1 EX Super Armor & Meter Drain Glitch Protection
-* Fixes the notorious vanilla engine bug where taking a hit during early startup frames of an EX Special move (before native armor activates) drains 1 bar of super meter while the move completely vanishes and drops.
-* Grants immediate Frame-1 Super Armor, neutralizes incoming flinch reactions, and protects the attacker's action from premature abortion.
-
-### 5. Persistent Crouch Input Buffer (Ducking Bug Fix)
-* Eliminates the vanilla engine bug where holding Down causes directional buffer tokens to expire after 8 frames, causing subsequent attack button presses (1, 2, 3, 4) to resolve as neutral standing attacks rather than low pokes (D+1, D+3, D+4) or uppercuts (D+2).
-* Maintains continuous crouch state for as long as Down is physically held, ensuring 100% reliable low pokes and anti-air uppercuts from extended crouching states.
-
-### 6. Negative Edge (Release Check) Subsystem
-* **Tournament Standard (Disabled by Default):** In competitive fighting games, specials executing on button release often cause accidental misfires. This mod defaults Negative Edge to **OFF** for both players.
-* **Independent Per-Player Toggles:** Easily turn Negative Edge on or off for P1 and P2 individually via hotkeys (`Shift + F7` / `Shift + F8`) or the console UI.
-* **Zero Performance Overhead:** Optimized with direct pointer indexing and zero-overhead early exits, ensuring solid 60 FPS performance.
-
-### 7. Experimental 3D Hitbox & Collision Visualizer (DirectX 9 Hook)
-> **Note:** Visualizers are *experimental estimates* based on skeletal bone tracking and heuristic bounding geometry, not 100% pixel/frame accurate.
-* **Red Volumes:** Active physical striking hitboxes (limbs, Type A weapons, Type B props).
-* **Green Volumes:** Full skeletal hurtboxes and body collision cylinders.
-* **Cyan Volumes:** Ground and aerial positional pushboxes.
-* Toggleable directly in the in-game console (Tab 4: 3D Visualizer & Display).
-
-### 8. Experimental Frame Data Visualizer & Timeline Bar (F9)
-> **Note:** Timings and frame advantage are *experimental estimates* based on live memory states and animation clocks, not 100% accurate.
-* **Dynamic Timeline Segmentation:** **Startup (Pink)**, **Active (Red)**, **Recovery (Yellow)**, **Hitstun / Stumble (Orange)**, **Blockstun (Blue)**, **Dash / Cancel (Slate)**, **Quick Roll / Tech Roll (Green)**, **Invincible Wake-up (Violet)**, **Delayed Wakeup (Teal)**.
-* **Real-Time Frame Advantage Readout (+/-):** Instant calculation of advantage on hit or block.
-* **Active Duration Digit Overlays:** Live number labeling over phase blocks for visual measurement.
-* **Custom Positioning & Opacity:** Right-click context menu and drag anywhere to reposition.
-
-### 9. Practice Mode Lab Tools (Recording & Reversals)
-* **Practice Dummy Recording & Playback (Tab 2):** Record and loop custom dummy attack strings, jump-ins, and mixups across multiple memory slots.
-* **Practice Dummy Reversal Engine (Tab 3):** Set the dummy to auto-reversal out of blockstun, hitstun, or wakeup with configurable delay frames (0-30F) to test frame traps and meaty setups.
-* **Knockdown Recovery Options:** Enforce or test Normal Wakeup, Tech Roll, Delayed Wakeup, and Delayed Roll.
-
-### 10. Live Microsecond Hook Telemetry & Hardware Profiler
-* Dedicated performance profiler backed by high-resolution hardware timers (`QueryPerformanceCounter`).
-* Measures live execution times (in microseconds $\mu s$), peak latency spikes, and frame budget percentages across input hooks, trade engine, meter logic, and rendering.
-
-### 11. Simulation Controls & Free Camera
-* **Pause / Freeze Simulation:** Press **Backslash (\)** to instantly freeze the simulation match state.
-* **Step 1 Frame Forward:** Press **Equals (=)** while paused to advance the match exactly one tick at a time.
-* **Detachable 3D Free Camera:** Full 360-degree rotation, pan, zoom, and cinematic perspective inspection.
-
-### 12. Display & Quality-of-Life Features
-* **720p & Below Monitor Auto-Fullscreen Lock:** Detects displays $\le 720p$ and locks to Exclusive Fullscreen to prevent window clipping.
-* **Fullscreen Direct3D Mouse Cursor:** Native arrow cursor rendered directly inside Exclusive Fullscreen.
-* **Display Mode Switching:** Switch between Borderless Windowed, Windowed, and Fullscreen anytime via **F10** or the console menu.
-* **Toasty Training Mode:** Forces Dan Forden's "Toasty!" cameo 100% of the time on D+2 uppercuts with the authentic 85-frame reward window (`Down + Start`) for full meter replenishment.
-* **Stability Fixes:** Havok memory page commit guards and audio vtable initialization guards prevent random Havok and R6025 crashes.
-* **Skip Intro:** Automatically skips opening logos directly to the title screen.
-
-### 13. Juggle Value & Gravity Deterioration Subsystem (Extras Tab)
-* **Custom Air Decay Rate:** Direct tuning of airborne physics velocity decay (`0.050x` to `3.000x`, Vanilla standard `0.700x`), allowing heavier gravity drops or floatier extended aerial juggling.
-* **Per-Hit Juggle Deterioration:** Dynamic gravity scaling that deducts decay delta (`0.005x` to `0.700x`) per consecutive juggle hit, progressively pulling airborne opponents downward to naturally prevent infinite corner loops.
-* **Bypass Move Juggle Limit (Infinite Pop-ups):** Clamps the engine's internal juggle counter check at `0x00895962` so moves never refuse to launch or lock into untechable falling states.
-* **Strict Jump Isolation:** Normal neutral, forward, backward jumps, air normals, and landings (`action < 0x4000`) remain 100% vanilla and strictly unaffected by juggle decay.
-* **Live In-Match Telemetry:** Real-time pushbox Z coordinates, juggle hit counters, and effective decay readouts for both P1 and P2.
-
----
-
-## Controls & Hotkeys
-
-### General & Overlay Controls
-| Hotkey | Action |
-| :--- | :--- |
-| **~ (Tilde)** | Open / Close Live In-Game ImGui Console |
-| **\ (Backslash)** | Pause / Freeze Game Simulation |
-| **= (Equals)** | Step 1 Frame Forward (while paused) |
-| **F9** | Toggle Real-Time Frame Data Visualizer HUD *(Experimental)* |
-| **F10** | Cycle Video Display Mode (Borderless / Windowed / Fullscreen) |
-
-### Diagnostic Macro Test Suites (Practice Mode / Keyboard Controls)
-* **Mode 1: Normal Timing Suite** (F1-F5: 0f, +1f, +2f FP trade intervals; F8: Low kick trade)
-* **Mode 2: Weapon Clashing Suite** (F1-F8: b+FP, b+BP, f+FP weapon clashes vs normals)
-* **Modes 3–6: Projectile Diagnostic Suites** (Simultaneous projectile clash testing)
-* **Mode 7: Matchup Priority Suite (Scorpion vs Sub-Zero)** (D,F+3 vs D+1, D+2 vs Specials, Jump-in vs Anti-Air)
-* **Mode 8: Release Check & Input Buffer Diagnostics** (Standard, Snap, Stagger, and Direction-Held Negative Edge checks)
-* **Mode 9: Live Projectile & Frame Data Telemetry** (Projectile trajectory, hitbox duration, and frame data analysis)
-* **Mode 10: EX Forceball -> F+3 Frame Trap vs EX Reversals** (Reptile Stand BL vs Crouch BL at Frames 94-103 into EX Flip Kick)
-
----
-
-## In-Game Console Menu Structure (~ / Tilde)
-
-Press **`~` (Tilde)** at any time during gameplay or practice mode to access the 5-tab control panel:
-
-* **Tab 1: Gameplay Fixes:**
-  * Trade Engine Fix Toggle (F11)
-  * Player 1 & Player 2 Negative Edge Toggles (Tournament Standard OFF / Vanilla ON)
-  * Crouch Input Buffer Lookback Fix (Persistent Crouch / Ducking Bug Fix)
-  * Meter Drain Glitch Fix (Frame-1 Super Armor & Action Guard)
-  * Toasty Training Mode & Dan Forden 85-Frame Reward Window
-* **Tab 2: Recording Settings:**
-  * Practice dummy frame-accurate input recording & playback engine
-  * Multi-slot recording management (Loop playback, One-shot playback)
-* **Tab 3: Reversal Settings:**
-  * Auto-reversal attack triggers (On Blockstun, On Hitstun, On Wakeup)
-  * Execution delay sliders (0 to 30 frames)
-  * Knockdown recovery method selection (Normal, Tech Roll, Delayed Wakeup, Delayed Roll)
-* **Tab 4: 3D Visualizer & Display:**
-  * UE3 Native 3D Collision Visualizer *(Experimental Estimates)*: Red Hitboxes, Green Hurtboxes, Cyan Pushboxes
-  * Display Management: Borderless, Windowed, Exclusive Fullscreen, 720p Auto-Lock
-  * Frame Data Timeline Bar Settings *(Experimental Estimates)*: Opacity, Positioning, Color Glossary
-  * Detachable 3D Free Camera controls
-* **Tab 5: Extras:**
-  * Super Meter System & Custom Expenditure (EX, Breaker, and X-Ray cost sliders + live % readouts)
-  * Real-Time On-Screen Meter Percentage HUD (XX.X% readout, position sliders, reset)
-  * Knockdown & Wakeup Recovery Customization (Disable Delayed Wakeup, Fixed Duration, Disable Roll)
-  * Modular Move Priority Hierarchy (Uppercuts, Specials, Jump-Ins, X-Rays, Projectiles)
-  * Extra Gameplay: Juggle Value & Gravity Deterioration (Air Decay Multiplier, Dynamic Per-Hit Deterioration Scaling, Bypass Move Juggle Limits, Live Telemetry)
-
----
+# MK9 Native Physical Trade Engine
+
+**Mortal Kombat Komplete Edition · Windows PC / Steam · v0.6710a**  
+**By Fai Khozen** · [Support on Ko-fi](https://ko-fi.com/faikhozen) · [Reports / Contact](https://x.com/faikhozen)
+
+A gameplay mod and practice toolkit for Mortal Kombat Komplete Edition. It combines physical attack trades, configurable combat rules, dummy recording and reversals, frame-data displays, collision visualization, and stage capture tools in an in-game overlay.
+
+[Revision history](docs/CODEX_CHANGELOG.md) · [Release validation](docs/PUBLIC_RELEASE_v06710.md)
+
+## Features
+
+### Gameplay fixes and combat customization
+
+- **Physical Trade Priority Fix:** enables physical normal-attack trades rather than resolving every clash through one-sided priority.
+- **Input fixes:** ducking-normal buffer fix, jump-input threshold fix, P1/P2 input isolation, and separate negative-edge toggles.
+- **Meter controls:** meter-drain fix; configurable EX, Breaker and X-Ray costs; optional special, throw and cancel costs; attacker/defender meter gains and on-screen meter percentages.
+- **Combat rules:** configurable hitstun, blockstun, block pushback and corner reflection; attack startup/active/recovery modifiers; move-priority options.
+- **Counter Hit / Fatal Punish / Trade:** optional hitstun extensions, meter rewards and outcome badges. Counter hits identify attack interrupts; fatal punishes identify recovery punishes. Startup thresholds and other selected rules determine eligibility.
+- **Dramatic Mode:** quick presets for combat modifiers and impact camera effects, including Cam 1 FOV and Cam 2 angled camera settings. The later experimental camera redesigns were shelved; v0.6710a retains the earlier camera behavior.
+- **Juggle Gravity & Limits:** receiving-player scope, Native / Floaty / Heavy settings, per-hit deterioration and count-based juggle-limit bypass. Normal jumps retain native behavior.
+- **Knockdown & wakeup options:** quick-roll and delayed-wakeup controls, fixed delayed-wakeup hold, and **Disable Wakeup Attack on Wakeup Roll**. The roll restriction suppresses both the restricted attack and its native Wakeup Attack banner while allowing eligible no-roll wakeup attacks.
+
+### Practice recording and reversals
+
+- Record and replay Player 2 inputs using practice dummy slots; import/export recordings as `.mkr` files.
+- Recording/playback requires an active Practice match with the native dummy set to **Human**. Keyboard capture uses P2's default arrow/numpad controls.
+- Assign the reversal target to P1 or P2; configure **Invincible Wake-up**, **Regular Wake-up**, **Block Reversal**, and **Reversal After Damage** actions.
+- Configure reversal actions, weights, hold times and delays, with quick-roll and delayed-wakeup recovery options. Regular Wake-up executes after neutral recovery with one additional frame beyond the selected delay.
+- Dummy standing/crouching, guard and auto-block controls; Normal / Full / Refill super-meter modes.
+- Directional practice position resets, simulation pause/frame advance, and diagnostic test macros for repeatable labbing.
+
+### Frame data and collision display
+
+- **Frame-data timeline (F9):** live startup, active and recovery phases, total frames and advantage, including follow-up string segments and observed weapon activity.
+- **Attack hitboxes:** red circles. **Body hurtboxes:** green/yellow circles. **Pushboxes:** cyan circles.
+- Optional move-name/action-ID telemetry and hit-outcome popups.
+
+These displays use live engine observations and fallback estimates. They are practice references; complex cancels, strings and character-specific behavior can still produce discrepancies.
+
+### Visuals, capture and display
+
+- **Void Mode:** hide stage geometry and choose a background color, including black, green-screen, blue-screen and magenta presets.
+- Separate options hide **stage characters/animated props** and **stage ambient FX/translucent meshes**. Enable both alongside Void Mode for the broader stage cleanup. Reported fixes cover Cemetery, beach water, Courtyard, Hell, Desert, Pit and Temple scenery/effects while preserving the tested fighter projectiles and FX.
+- Colored perspective floor grid, center lines and stage-corner boundaries.
+- **Clean fighters:** suppress blood and cosmetic battle damage during the match. Health damage and reactions still apply.
+- Character lighting preservation through practice entry/reset, Scorpion Teleport Punch and Shang Tsung Soul Steal while using Void Mode.
+- Free camera, display-mode switching, and optional 4:3/non-16:9 resolution unlocks.
+
+### Toasty, character fixes and utilities
+
+- **100% Uppercut Toasty:** qualifying D+2 hits trigger Toasty when no cameo is already visible. The current cameo finishes its native slide-out before another starts; it does not restart on every rapid hit.
+- Toasty corner/size controls, optional random sizing, and a character Toasty Boost input reference. The cameo retains its native reward-input window.
+- **Jade staff fix:** interrupted staff attacks no longer permanently lose the staff; detached temporary staff/glow visuals are hidden promptly.
+- Startup logo/legal/vendor screens are skipped while save loading and its notice remain intact.
+- Four user preset slots with save/load and INI import/export, ASI plugin loading, console logging, loading diagnostics and an optional hardware micro-profiler. Profiling starts **OFF**.
+
+## Source code
+
+The release ZIP includes the matching C++ source, tests, build script, and SHA-256 source manifest in source/.
 
 ## Installation
 
-1. Copy `dinput8.dll` into your Mortal Kombat 9 installation folder (where `MKKE.exe` is located):
-   * Example: `...\Steam\steamapps\common\MortalKombat_KompleteEdition\DiscContentPC\`
-2. Launch the game normally through Steam.
-3. Press **`~` (Tilde)** on your keyboard at any time in-game to toggle the ImGui console menu.
-4. To uninstall, simply delete or rename `dinput8.dll`.
+1. Close MKKE and back up any existing `dinput8.dll` in `DiscContentPC`.
+2. Download and extract the release ZIP.
+3. Copy its `dinput8.dll` beside `MKKE.exe` in the game's `DiscContentPC` folder.
+4. Launch the game and check that the overlay shows **v0.6710a**.
 
----
+The package does not replace saves, recordings or existing configuration. Existing settings can affect which options are enabled. If another mod uses `dinput8.dll`, resolve the loader conflict before replacing it. To uninstall, close the game and restore the previous DLL, or remove this DLL if none was previously installed.
 
-## Verification & Integrity
+**Compatibility:** Windows x86 Mortal Kombat Komplete Edition. Supported executable SHA-256: `D1C71E086DEAC26716E48F060E486679A36DDD4002AB5080D66DF9D11437D0E6`. Other executable versions and overlapping patches may prevent initialization. Hot unloading is unsupported.
 
-* **File:** `dinput8.dll` (x86 release binary)
-* **SHA-256:** `4F1C0E6AE28970A84E4EEC5E47AECAA375FBC750E422CC41EC78EBE03A62DD3E`
+## Quick controls
 
----
+| Key | Action |
+|---|---|
+| `~` | Open / close overlay |
+| `\` | Pause / resume simulation |
+| `=` | Advance one simulation tick while paused |
+| `F9` | Toggle frame-data timeline |
+| `F10` | Cycle display mode |
+| Main keyboard `-` | Toggle free camera |
 
-## In-Game Console Menu Structure (~ / Tilde)
+Diagnostic function-key actions depend on the selected test mode. Use the overlay's labels for the current bindings.
 
-Press **`~` (Tilde)** at any time during gameplay or practice mode to access the 5-tab control panel:
+## What's new in v0.6710a
 
-* **Tab 1: Gameplay Fixes:**
-  * Trade Engine Fix Toggle (F11)
-  * Player 1 & Player 2 Negative Edge Toggles (Tournament Standard OFF / Vanilla ON)
-  * Crouch Input Buffer Lookback Fix (Persistent Crouch / Ducking Bug Fix)
-  * Meter Drain Glitch Fix (Frame-1 Super Armor & Action Guard)
-  * Toasty Training Mode & Dan Forden 85-Frame Reward Window
-* **Tab 2: Recording Settings:**
-  * Practice dummy frame-accurate input recording & playback engine
-  * Multi-slot recording management (Loop playback, One-shot playback)
-  * Super Meter Practice Automation (Normal / Full 100% Lock / Refill after 4.0s idle)
-* **Tab 3: Reversal Settings:**
-  * Auto-reversal attack triggers (On Blockstun, On Hitstun, On Wakeup)
-  * Practice Dummy Auto-Block Engine (Off / Stand Auto-Block / Crouch Auto-Block with 2.0s idle release)
-  * Execution delay sliders (0 to 30 frames)
-  * Knockdown recovery method selection (Normal, Tech Roll, Delayed Wakeup, Delayed Roll)
-  * Super Meter Practice Automation (Normal / Full 100% Lock / Refill after 4.0s idle)
-* **Tab 4: 3D Visualizer & Display:**
-  * UE3 Native 3D Collision Visualizer *(Experimental Estimates)*: Red Hitboxes, Green Hurtboxes, Cyan Pushboxes
-  * Display Management: Borderless, Windowed, Exclusive Fullscreen, 720p Auto-Lock, Resolution Carousel Fix
-  * Dynamic Toasty Alignment (Custom width/height, 4-corner placement, aspect ratio scaling)
-  * Frame Data Timeline Bar Settings *(Experimental Estimates)*: Opacity, Positioning, Color Glossary
-  * Detachable 3D Free Camera controls
-* **Tab 5: Extras:**
-  * Dynamic Clash & Dramatic Camera System (Cam 1 FOV Cinematic Close-up, Cam 2 Angled Over-the-Shoulder, Slow-Mo Scaling, Camera 2 Anti-Drift)
-  * Combat Meter Economy (Custom Special Move expenditure, Dash/Special cancel costs, Attack Hit meter gains, Block meter gains, Counter/Punish bonus rewards)
-  * Visual & Immersion Modifiers (Disable Blood, Disable Stage Background / Void Mode, Custom Background Color & Chroma-Key Green/Blue Screen, 3D Perspective Floor Training Grid)
-  * User Presets & Profiles (Slot 1 to 4 Save/Load, INI Export/Import, Vanilla / Dramatic Mode 1 & 2 quick buttons)
-  * Super Meter System & Custom Expenditure (EX, Breaker, and X-Ray cost sliders + live % readouts)
-  * Real-Time On-Screen Meter Percentage HUD (XX.X% readout, position sliders, reset)
-  * Knockdown & Wakeup Recovery Customization (Disable Delayed Wakeup, Fixed Duration, Disable Roll)
-  * Modular Move Priority Hierarchy (Uppercuts, Specials, Jump-Ins, X-Rays, Projectiles)
-  * Extra Gameplay: Juggle Value & Gravity Deterioration (Air Decay Multiplier, Dynamic Per-Hit Deterioration Scaling, Bypass Move Juggle Limits, Live Telemetry)
+Corrects floor-grid wall placement on The Street by using the native projected stage limits instead of assuming that the spawn offset is half the arena width. Gameplay collision is unchanged. [Hotfix details and validation](docs/STAGE_WALL_HOTFIX.md).
 
----
+## Included v0.6710 changes
 
-## TO DO / Roadmap
+This release consolidates the Codex-assisted fixes for string/crouching frame data, false wakeup and counter/punish labels, juggle controls, stage cleanup and lighting, clean fighters, quick-roll wakeup restrictions, Jade's staff, startup skips and Toasty's lifecycle.
 
-- [ ] More vanilla MK9 bug fixes & legacy crash remedies
-- [ ] Accuracy in Hitboxes, Hurtboxes by default (transitioning from experimental estimates to exact native physics mesh volumes)
-- [x] Negative edge removal (Release Check toggle per player with tournament standard defaults)
-- [x] Crouch Input Buffer lookback timeout fix
-- [x] Meter Drain Glitch fix on EX move early startup
-- [x] Toasty Meter Boost Training & Cameo Subsystem
-- [x] Frame Data Visualizer timeline & advantage calculations (experimental)
-- [x] Practice dummy recording & auto-reversal engine
-- [x] Practice dummy Auto-Block engine & strict combo link verification
-- [x] Super Meter Practice Automation (Normal, Full, Refill after 4s idle)
-- [x] Dynamic Clash Camera System (Cam 1 FOV & Cam 2 Angled over-the-shoulder)
-- [x] Combat Meter Economy customization (Expenditures, Cancels, Gains, Counter/Punish rewards)
-- [x] Character Select Screen & DLC Package crash stability guards (Guards 7 & 8)
-- [x] Stage Background Removal / Void Mode / Green Screen & 3D perspective floor grid
-- [x] Custom super meter expenditure & on-screen percentage HUD
-- [x] In-game configuration & customization menu (presets, user profiles, INI export)
-- [x] Frame meter gain calibration on attack hit/block
+The release optimization pass removes temporary Jade diagnostics, installs Toasty training patches once, and leaves optional profiling off until requested. No comparative FPS improvement is claimed.
 
----
+The complete **Dev1–Dev19 history**, including superseded experiments, is in the [Codex changelog](docs/CODEX_CHANGELOG.md). Older feature notes are retained in the [historical README](docs/LEGACY_README_v06709.md); current behavior is described above.
 
-## Credits & Acknowledgements
+## Validation and bug reports
 
-Special thanks to the authors and maintainers of the following open-source projects used in this mod:
+The v0.6710a hotfix passed **952 automated checks** and a final user-driven practice smoke test. See the [verification record](docs/PUBLIC_RELEASE_v06710.md) and linked revision notes for scope. Coverage is not exhaustive across every character, costume, stage, plugin or match mode.
 
-* **[MinHook](https://github.com/tsudakageyu/minhook)** by Tsuda Kageyu – The minimalistic x86/x64 API hooking library for native function detours and trampolines.
-* **[Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader)** by ThirteenAG – DLL wrapper architecture allowing clean injection and dynamic library proxying (`dinput8.dll`).
-* **[Dear ImGui](https://github.com/ocornut/imgui)** by Omar Cornut – Bloat-free immediate mode graphical user interface library for C++ powering the in-game live console and visualizer overlays.
+When reporting an issue, include the version, characters, stage, enabled options, input sequence, and whether it follows a reset or interruption.
+
+## Building
+
+Use VS2022 Community's x86 C++ toolchain and run `build_x86.bat`. Output is written to `bin`; deployment is separate. Run `tests/run_tests.bat "FULL_PATH_TO_MKKE.exe"` for the regression checks. Tests read the executable without launching it.
+
+## Credits
+
+Created by **Fai Khozen**. Development and reverse engineering used AI assistance, including Gemini and OpenAI Codex. Third-party notices accompany the release.
+
+
+

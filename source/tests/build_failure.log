@@ -1,0 +1,12 @@
+======================================================================
+ Building MK9 Trade Priority Fix Mod (dinput8.dll x86)
+======================================================================
+[*] Compiling MinHook (x86)...
+buffer.c
+hook.c
+trampoline.c
+hde32.c
+src\minhook\src\hde\hde32.c: fatal error C1083: Cannot open include file: '__MK9_INTENTIONAL_MISSING_HEADER_94F26A__.hpp': No such file or directory
+src\minhook\src\trampoline.c: fatal error C1083: Cannot open include file: '__MK9_INTENTIONAL_MISSING_HEADER_94F26A__.hpp': No such file or directory
+src\minhook\src\hook.c: fatal error C1083: Cannot open include file: '__MK9_INTENTIONAL_MISSING_HEADER_94F26A__.hpp': No such file or directory
+src\minhook\src\buffer.c: fatal error C1083: Cannot open include file: '__MK9_INTENTIONAL_MISSING_HEADER_94F26A__.hpp': No such file or directory

@@ -1,0 +1,6 @@
+regression.cpp
+tests\regression.cpp(46): warning C4996: 'tmpfile': This function or variable may be unsafe. Consider using tmpfile_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+tests\regression.cpp(56): warning C4996: 'tmpfile': This function or variable may be unsafe. Consider using tmpfile_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+profiler.cpp
+Generating Code...
+PASS: 908 checks (recording round trips, every truncated prefix, legacy/empty/oversized input, export failures, executable compatibility, hook rollback, unsupported-host DLL load)
