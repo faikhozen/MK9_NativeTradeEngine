@@ -1,11 +1,11 @@
 # MK9 Native Physical Trade Engine
 
-**Mortal Kombat Komplete Edition · Windows PC / Steam · v0.6710a**  
+**Mortal Kombat Komplete Edition · Windows PC / Steam · v0.6710b**  
 **By Fai Khozen** · [Support on Ko-fi](https://ko-fi.com/faikhozen) · [Reports / Contact](https://x.com/faikhozen)
 
 A deep native gameplay mod, training lab suite, frame-data engine, and visual capture toolkit for *Mortal Kombat Komplete Edition* (PC). It features true physical attack trading, comprehensive practice dummy recording and reversal automation, interactive frame-data timelines, skeletal collision visualization, stage Void Mode / green-screen capture, customizable combat rules, and an in-game graphical overlay.
 
-[Revision history](docs/CODEX_CHANGELOG.md) · [Release validation](docs/PUBLIC_RELEASE_v06710.md) · [Macro diagnostics](docs/MACRO_DIAGNOSTICS.md) · [Hotkey guide](docs/HOTKEYS.md)
+[Revision history](docs/CODEX_CHANGELOG.md) · [Release validation](docs/PUBLIC_RELEASE_v06710b.md) · [Macro diagnostics](docs/MACRO_DIAGNOSTICS.md) · [Hotkey guide](docs/HOTKEYS.md)
 
 ---
 
@@ -94,11 +94,12 @@ Press **`~` (Tilde / Grave Accent)** at any time during gameplay or practice to 
 * **Recording File Management (`.mkr`)**:
   * Export/import active slot to `.mkr` file.
   * Batch export/import all slots to/from a folder (`slot1.mkr` .. `slot5.mkr`).
-* **Controller Port Configuration**:
+* **Assigned Training Device Routing & Port Configuration**:
+  * **Native Assigned Training Device Support**: Automatically reads resolved input actions directly from the game-assigned training controller or keyboard (supporting P1 controller / P2 WASD, numpad, or direct XInput pads). Playback feeds the target native device before input-history generation. The training panel displays live P1/P2 assigned device rows. [Assigned device details](docs/RECORDING_ASSIGNED_DEVICE.md).
+  * **Recorder Slot Synchronization**: The floating recorder HUD, total frames/progress, status footer, and playback highlights automatically follow the selected active slot upon choosing Play Slot (e.g. selecting Play Slot 1/2 dynamically updates the HUD without retaining previous slot states).
   * **Detect P2 (Dummy) Controller**: Press any button on the dummy pad to automatically bind it to P2.
   * **Detect P1 Controller**: Auto-binds P1 gamepad.
   * **Swap P1 <-> P2 Gamepad**: One-click controller port swap.
-  * Keyboard notice: P2 keyboard control uses native default controls (Arrow keys + Numpad).
 
 ---
 
@@ -112,7 +113,7 @@ Press **`~` (Tilde / Grave Accent)** at any time during gameplay or practice to 
 * **Reversal Categories**:
   1. **Invincible Wake-up**: True wakeup reversal special attack with 3-frame pre-buffer, native invulnerability armor, and the "WAKE UP ATTACK" banner.
   2. **Regular Wake-up**: Neutral getup reversal. Waits for neutral recovery after getup and adds 1 frame beyond the selected delay.
-  3. **Block Reversal**: Executes on the exact first frame out of blockstun.
+  3. **Block Reversal**: Executes on the exact first frame out of blockstun. Automatic 0F Block Reversal timing primes the selected reversal input at the exact frame of observed recovery in the current simulation tick, eliminating sequence-runner wait frames. [Auto-reversal timing details](docs/BLOCK_REVERSAL_AUTO_TIMING.md).
   4. **Reversal After Damage**: Executes on the exact first frame out of hitstun.
 * **Per-Slot Customization**:
   * 5 configurable slots per category.
@@ -168,6 +169,7 @@ Press **`~` (Tilde / Grave Accent)** at any time during gameplay or practice to 
   * **Unlock 4:3 & Non-16:9 Resolutions**: Unlocks 800x600, 1024x768, 1280x960, 1280x1024, 1600x1200, and 16:10 resolutions in the in-game Video Options menu.
 * **Frame Data Timeline Bar Settings**:
   * Enable/Disable toggle (**F9**).
+  * **Blocked-Attack Reaction Timing Correction**: Replaces token/damage estimates in the block timeline with native reaction-script observation (including crouch `reaction4F00`, shared animation helpers, and parent cleanup), recording exact release when a reversal starts. Eliminates false Johnny Cage F+3 block advantage readings (-7/-25 corrected to 0F). [Block reaction details](docs/FRAME_DATA_BLOCK_REACTION_FIX.md).
   * Frame Bar Opacity slider (0.00 to 1.00).
   * **Reset Frame Bar Position**: Re-centers the bar at bottom-center of the screen.
   * **Color Reference & Glossary Table**:
@@ -238,6 +240,16 @@ Press **`~` (Tilde / Grave Accent)** at any time during gameplay or practice to 
 * **On-Screen Move ID & Move Name Telemetry**:
   * Shows real-time move name and action state hex ID (e.g. `[0x5200]`) directly above each player's super meter dial.
   * Customizable X/Y positioning offset sliders.
+* **Move Restrictions**:
+  * **Disable Dial-A-Combos**: Allows opening normals, including command normals; blocks additional normal string inputs. Built-in hits of a single move remain.
+  * **Disable Special Moves**: Blocks regular specials independently of EX and X-Ray restrictions.
+  * **Disable EX Special Moves**: Blocks enhanced specials.
+  * **Disable X-Ray Moves**: Blocks X-Ray activation before meter spending.
+  * **Disable Normal Cancels into Special Moves**: Prevents normal/string → regular special cancels while allowing raw specials after recovery.
+  * **Disable Normal Cancels into EX Special Moves**: Prevents normal/string → enhanced special cancels while allowing raw EX specials.
+  * **Disable Normal Cancels into X-Ray Moves**: Prevents normal/string → X-Ray cancels while allowing raw X-Rays.
+  * **Restrict Air Specials Below Minimum Height**: Adjustable 0–300 native units above the floor for regular/EX air specials, with live current and current/last-jump peak heights plus cached standing hurtbox heights for P1/P2. Defaults OFF with a 50-unit threshold. A threshold is not a guarantee that projectiles miss standing opponents.
+  * Applies to Both Players, P1 Only, or P2 Only. All eight restrictions start OFF; settings and scope are included in Extras user presets. Full move restrictions override cancel-only settings.
 * **Knockdown & Wakeup Recovery Options**:
   * Target Scope: Both Players, P1 Only, P2 Only.
   * **Disable Wakeup Attack on Wakeup Roll**: Suppresses wakeup attacks and the "WAKE UP ATTACK" banner when recovering from a tech roll; allows standard no-roll wakeup attacks. Displays live blocked roll wakeup check counters.
@@ -357,6 +369,8 @@ Works on both gamepad (`Back` / `Select`) and keyboard (P1 Select: **`4`** on nu
 | **Down + Right + Select** (`S + D` / Down + Right Arrow) | Right Corner Swapped (`P1: +1300.0f, P2: +1140.0f`) |
 | **Down + Select** (`S` / Down Arrow) | Center Swapped (`P1: +120.0f, P2: -120.0f`) |
 
+P1 uses top-row **`4`** (or **`Backspace`**), optionally with **`A` / `D`** for a corner and **`S`** to swap sides. P2 uses **`Numpad -`**, with **`Left` / `Right`** and **`Down`** for the same positions. Physical numpad 4 remains dedicated as an attack key. Fresh key-down events with scan-code qualification prevent held-key repeats; focus, pause, text-entry, and automation guards ensure clean execution. A collapsed console overlay no longer blocks this shortcut. [Controls and validation](docs/KEYBOARD_PRACTICE_RESET.md).
+
 ### Free Camera Flight Controls
 
 | Control | Action |
@@ -372,6 +386,24 @@ Works on both gamepad (`Back` / `Select`) and keyboard (P1 Select: **`4`** on nu
 | **Gamepad Dual Sticks** | Left Stick moves; Right Stick looks; `RT` / `LT` ascend / descend |
 
 ---
+
+## What's New in v0.6710b
+
+* **Recording with Assigned Training Device**: Reads native assigned-device actions instead of hardcoded keyboard aliases, properly supporting P1 controller / P2 WASD, numpad, or direct XInput pads. Playback feeds the target native device before input-history generation. The panel displays live P1/P2 assigned devices. [Assigned device details](docs/RECORDING_ASSIGNED_DEVICE.md).
+* **Recorder Slot Display Synchronization**: Floating recorder HUD, total frames/progress, status footer, and playback highlights automatically follow the selected active slot upon choosing Play Slot (e.g. Play Slot 1/2 instead of retaining previous recording slot).
+* **Native Keyboard Practice Position Resets**: Fresh key-down scan-code qualified practice resets directly from the game window. Player 1 uses top-row **`4`** (or **`Backspace`**), with **`A`** / **`D`** for corners, **`S`** for side swap, and **`S+A`** / **`S+D`** for swapped corners. Player 2 uses **`Numpad -`** with arrow keys (**`Left`** / **`Right`** / **`Down`**). Physical Numpad 4 remains isolated as an attack button. Text-entry and automation guards prevent unwanted resets. [Keyboard reset details](docs/KEYBOARD_PRACTICE_RESET.md).
+* **Blocked-Attack Reaction Timing & Advantage Accuracy**: Replaces token/damage estimates in the block timeline with native reaction-script observation (including crouch `reaction4F00`, shared animation helpers, and parent cleanup), recording exact release when a reversal starts. Resolves false Johnny Cage F+3 block advantage readings (-7/-25 corrected to 0F). [Block reaction details](docs/FRAME_DATA_BLOCK_REACTION_FIX.md).
+* **Automatic 0F Block Reversal Timing**: Block Reversal 0F now primes the selected reversal input at the exact frame of observed recovery in the current simulation tick, eliminating sequence-runner wait frames. [Auto-reversal timing details](docs/BLOCK_REVERSAL_AUTO_TIMING.md).
+* **Granular Move Restrictions & Normal Cancels**: Extras menu adds independent restrictions with per-player scope and preset persistence for:
+  * Disabling normal string follow-ups (Dial-A-Combos, allowing opening/command normals)
+  * Disabling regular special moves from neutral
+  * Disabling EX special moves
+  * Disabling X-Ray super moves
+  * Disabling Normal $\rightarrow$ Special move cancels (retaining raw specials from neutral)
+  * Disabling Normal $\rightarrow$ EX Special move cancels (retaining raw EX specials from neutral)
+  * Disabling Normal $\rightarrow$ X-Ray cancels (retaining raw X-Rays from neutral). [Move restrictions details](docs/MOVE_RESTRICTIONS.md).
+* **Minimum Air-Special Height Restriction**: Scoped, preset-persistent minimum height threshold (0–300 native units, default 50 units) measured from grounded reference for regular and EX air specials. Real-time telemetry displays P1 and P2 current height, current and last-jump peak heights, and cached standing hurtbox heights. [Height restriction details](docs/MINIMUM_AIR_SPECIAL_HEIGHT.md).
+* **Expanded Automated Regression Suite**: Test suite expanded to 1,142 automated offline verification checks passing cleanly.
 
 ## What's New in v0.6710a
 
@@ -399,7 +431,7 @@ Works on both gamepad (`Back` / `Select`) and keyboard (P1 Select: **`4`** on nu
    ```text
    ...\Mortal Kombat Komplete Edition\DiscContentPC\
    ```
-4. Launch the game through Steam or `MKKE.exe`. Check that the console overlay opens with **`~`** and displays **v0.6710a**.
+4. Launch the game through Steam or `MKKE.exe`. Check that the console overlay opens with **`~`** and displays **v0.6710b**.
 
 **Uninstallation**: Simply close the game and delete or rename `dinput8.dll` from `DiscContentPC`.
 
@@ -425,3 +457,6 @@ The complete C++ source code is included in the release package under `source/`.
 * **Dear ImGui**: Copyright (c) 2014-2024 Omar Cornut (MIT License).
 * **MinHook**: Copyright (C) 2009-2017 Tsuda Kageyu (BSD 2-Clause License).
 * **Hacker Disassembler Engine 32 C (HDE32)**: Copyright (c) 2008-2009 Vyacheslav Patkov.
+
+
+

@@ -1,3 +1,4 @@
+#include "attack_restrictions.hpp"
 #pragma once
 #include <cstdint>
 
@@ -151,6 +152,8 @@ namespace StunModifier {
         bool showGridCornerWalls;
         float gridWallColor[3];
 
+        AttackRestrictions::Settings attackRestrictions;
+
         // Wakeup
         bool disableQuickWakeup;
         bool disableRollWakeup;
@@ -254,3 +257,4 @@ namespace StunModifier {
 
 } // namespace StunModifier
 } // namespace MK9TradeFix
+

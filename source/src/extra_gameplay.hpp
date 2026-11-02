@@ -39,6 +39,7 @@ namespace ExtraGameplay {
     // Subsystem Lifecycle
     void Initialize();
     void OnFrameTick(void* p1Char, void* p2Char);
+    void ObservePracticeKeyboard(HWND window, UINT message, WPARAM key, LPARAM detail, bool textInput);
     void RenderFloorGrid();
     void UpdateBackgroundVisibility(bool forceUpdate = false);
     void RenderStageVisibilityUI();

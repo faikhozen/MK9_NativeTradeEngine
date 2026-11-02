@@ -6,6 +6,8 @@
 #include <cstdlib>
 
 namespace MK9TradeFix {
+    uint64_t g_BlockReversalReadyFrame = 0;
+    uint64_t g_BlockReversalFirstInputFrame = 0;
 
     static bool s_KeyHeldState[256] = { false };
 
@@ -853,7 +855,7 @@ namespace MK9TradeFix {
         return candidates.front();
     }
 
-    void ReversalEngine::TriggerReversal(ReversalType type, int targetPlayer) {
+    bool ReversalEngine::TriggerReversal(ReversalType type, int targetPlayer) {
         const char* revName = (type == ReversalType::WAKEUP_INVINCIBLE) ? "INVINCIBLE WAKE-UP" :
                               (type == ReversalType::WAKEUP_REGULAR)    ? "REGULAR WAKE-UP" :
                               (type == ReversalType::BLOCK)             ? "BLOCK" : "DAMAGE RECOVERY";
@@ -862,26 +864,26 @@ namespace MK9TradeFix {
 
         if (!m_GlobalReversalEnabled) {
             LogTrace("[REVERSAL ENGINE | F%llu] TriggerReversal aborted: m_GlobalReversalEnabled is false", g_CurrentFrame);
-            return;
+            return false;
         }
         if (!IsTrainingMode()) {
             LogTrace("[REVERSAL ENGINE | F%llu] TriggerReversal aborted: IsTrainingMode() is false", g_CurrentFrame);
-            return;
+            return false;
         }
         if (targetPlayer == 2 && !IsP2HumanControl()) {
             LogTrace("[REVERSAL ENGINE | F%llu] TriggerReversal aborted: IsP2HumanControl() is false", g_CurrentFrame);
-            return;
+            return false;
         }
         if (g_CurrentFrame <= m_LastTriggerFrame + 3) {
             LogTrace("[REVERSAL ENGINE | F%llu] TriggerReversal debounced: F%llu <= last %llu + 3", g_CurrentFrame, g_CurrentFrame, m_LastTriggerFrame);
-            return;
+            return false;
         }
 
         const ReversalCategoryConfig& cfg = GetConfig(type);
         int chosenIndex = PickWeightedSlot(cfg);
         if (chosenIndex < 0) {
             LogTrace("[REVERSAL ENGINE | F%llu] TriggerReversal aborted: No slots enabled in category config for %s", g_CurrentFrame, revName);
-            return;
+            return false;
         }
 
         const ReversalSlotConfig& selected = cfg.slots[chosenIndex];
@@ -893,9 +895,14 @@ namespace MK9TradeFix {
 
         ExecutePresetAction(selected.actionType, targetPlayer, delay);
         m_LastTriggerFrame = g_CurrentFrame;
+        if (type == ReversalType::BLOCK) {
+            g_BlockReversalReadyFrame = g_CurrentFrame;
+            g_BlockReversalFirstInputFrame = 0;
+        }
+        return true;
     }
 
-    void ReversalEngine::NotifyBlockstunEnd(int playerNum) {
+    bool ReversalEngine::NotifyBlockstunEnd(int playerNum) {
         LogTrace("[REVERSAL ENGINE | F%llu] NotifyBlockstunEnd called for P%d", g_CurrentFrame, playerNum);
         if (playerNum == m_TargetPlayer) {
             m_BlockRecoveryLockout = 15; // User requested: give extra 15f before blocking again after a blocked attack
@@ -909,7 +916,7 @@ namespace MK9TradeFix {
                 SafeKeyUp(VK_DOWN);
             }
         }
-        TriggerReversal(ReversalType::BLOCK, playerNum);
+        return TriggerReversal(ReversalType::BLOCK, playerNum);
     }
 
     void ReversalEngine::NotifyHitstunEnd(int playerNum) {
@@ -1163,7 +1170,11 @@ namespace MK9TradeFix {
 
         if (m_Def_WasInBlockstun && !currentlyInStun) {
             LogTrace("[REVERSAL ENGINE | F%llu] Blockstun release transition fired for P%d! (m_Def_WasInBlockstun=1, currentlyInStun=0)", g_CurrentFrame, m_TargetPlayer);
-            NotifyBlockstunEnd(m_TargetPlayer);
+            const bool queued = NotifyBlockstunEnd(m_TargetPlayer);
+            if (queued && m_ActiveSequence.delayRemaining == 0) {
+                TickActionSequence(p1Char, p2Char);
+                g_BlockReversalFirstInputFrame = g_CurrentFrame;
+            }
         } else if (m_Def_WasInHitstun && !currentlyInStun) {
             bool isFloorKnockdown = (actionState == 0x460D || (actionState >= 0x6000 && actionState <= 0x621F) ||
                                      (actionState >= 0x4200 && actionState <= 0x45FF && actionState != 0x4205 && actionState != 0x4206) ||
@@ -1918,6 +1929,8 @@ namespace MK9TradeFix {
     }
 
 }
+
+
 
 
 

@@ -149,6 +149,12 @@ namespace MK9TradeFix {
         int GetCountdownDisplayNumber() const { return (m_CountdownRemainingFrames + 59) / 60; }
         float GetCountdownProgressFraction() const;
 
+    public:
+        bool UsesNativePlayback() const;
+        bool ApplyNativePlayback(void* device);
+        const char* GetNativeDeviceName(int player) const;
+        static bool NativePlaybackReady();
+
     private:
         InputRecordingManager();
         ~InputRecordingManager() = default;

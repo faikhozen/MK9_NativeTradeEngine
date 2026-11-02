@@ -1,3 +1,4 @@
+#include "recording_device_policy.hpp"
 #include "input_recording.hpp"
 #include "recording_io.hpp"
 #include "reversal_engine.hpp"
@@ -12,6 +13,92 @@
 
 namespace MK9TradeFix {
 
+    struct NativeRecordingDevice { uintptr_t pointer=0; unsigned flags=0; int slot=-1, kind=0, port=-1; };
+    static bool s_NativePlaybackReady=false;
+    static bool ReadNativeRecordingDevice(int player,NativeRecordingDevice& out) {
+        if ((player!=1 && player!=2) || !IsTrainingMode()) return false;
+        __try {
+            void* character=player==1 ? GetP1Char() : GetP2Char();
+            if ((uintptr_t)character<0x01000000) return false;
+            const uintptr_t info=*(uintptr_t*)((uintptr_t)character+0x7638);
+            if (info<0x00400000) return false;
+            out.pointer=*(uintptr_t*)(info+0xB40);
+            out.slot=RecordingDevicePolicy::DeviceSlot(out.pointer);
+            if (out.slot<0 || *(int*)(out.pointer+4)!=out.slot) return false;
+            out.flags=*(unsigned*)(out.pointer+8);
+            if (!(out.flags&0xC9)) return false;
+            const uintptr_t config=0x00E0E1F0+out.slot*0x17C;
+            if (*(int*)(config+0x154)) {
+                out.kind=2; out.port=*(int*)(config+0x158);
+            } else out.kind=*(int*)config==7 ? 1 : 3;
+            return true;
+        } __except(EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+    bool InputRecordingManager::NativePlaybackReady() { return s_NativePlaybackReady; }
+    const char* InputRecordingManager::GetNativeDeviceName(int player) const {
+        NativeRecordingDevice d;
+        if (!ReadNativeRecordingDevice(player,d)) return "Not assigned / outside practice";
+        if (d.kind==1) return "Keyboard (game bindings)";
+        if (d.kind==2) {
+            static const char* ports[]={"XInput controller 1","XInput controller 2","XInput controller 3","XInput controller 4"};
+            return d.port>=0 && d.port<4 ? ports[d.port] : "XInput controller";
+        }
+        return "DirectInput device (game bindings)";
+    }
+    bool InputRecordingManager::UsesNativePlayback() const {
+        NativeRecordingDevice d;
+        return s_NativePlaybackReady && IsPlaying() && ReadNativeRecordingDevice(m_PlaybackTargetPlayer,d);
+    }
+    bool InputRecordingManager::ApplyNativePlayback(void* device) {
+        if (!s_NativePlaybackReady || !IsPlaying() || !IsTrainingMode() || IsNativeGamePaused()) return false;
+        NativeRecordingDevice d;
+        if (!ReadNativeRecordingDevice(m_PlaybackTargetPlayer,d) || d.pointer!=(uintptr_t)device) return false;
+        if (m_PlaybackSlotIndex<0 || m_PlaybackSlotIndex>=MAX_SLOTS) return false;
+        const auto& slot=m_Slots[m_PlaybackSlotIndex];
+        unsigned mask=0;
+        if (m_DelayRemainingFrames==0 && m_PlaybackFrameCursor<slot.frames.size()) {
+            const auto& frame=slot.frames[m_PlaybackFrameCursor];
+            mask=RecordingDevicePolicy::Encode(frame.directions,frame.buttons);
+        }
+        __try {
+            *(unsigned*)(d.pointer+0x0C)=mask;
+            // Normalization has already run. Override before native edge/history generation.
+            for (int offset=0x38;offset<=0x44;offset+=4) *(float*)(d.pointer+offset)=0;
+            return true;
+        } __except(EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+    typedef void (__cdecl *NormalizeDeviceFn)(void*,int);
+    static NormalizeDeviceFn s_NormalizeKeyboard=nullptr,s_NormalizeXInput=nullptr,s_NormalizeDirectInput=nullptr;
+    static void __cdecl NormalizeKeyboard(void* device,int slot) {
+        s_NormalizeKeyboard(device,slot); InputRecordingManager::Get().ApplyNativePlayback(device);
+    }
+    static void __cdecl NormalizeXInput(void* device,int slot) {
+        s_NormalizeXInput(device,slot); InputRecordingManager::Get().ApplyNativePlayback(device);
+    }
+    static void __cdecl NormalizeDirectInput(void* device,int slot) {
+        s_NormalizeDirectInput(device,slot); InputRecordingManager::Get().ApplyNativePlayback(device);
+    }
+    static void InstallNativeRecordingHooks() {
+        void* targets[]={(void*)0x00424910,(void*)0x00424310,(void*)0x00424500};
+        void* hooks[]={(void*)NormalizeKeyboard,(void*)NormalizeXInput,(void*)NormalizeDirectInput};
+        void** originals[]={(void**)&s_NormalizeKeyboard,(void**)&s_NormalizeXInput,(void**)&s_NormalizeDirectInput};
+        const unsigned char expected[][6]={{0x55,0x8B,0xEC,0x83,0xEC,0x20},{0x55,0x8B,0xEC,0x83,0xEC,0x20},{0x55,0x8B,0xEC,0x83,0xEC,0x24}};
+        bool created[3]={},enabled[3]={};
+        for(int i=0;i<3;++i) if(memcmp(targets[i],expected[i],sizeof(expected[i]))!=0) return;
+        bool ready=true;
+        for(int i=0;i<3;++i) {
+            created[i]=MH_CreateHook(targets[i],hooks[i],originals[i])==MH_OK;
+            enabled[i]=created[i] && MH_EnableHook(targets[i])==MH_OK;
+            ready=ready && enabled[i];
+        }
+        if(!ready) for(int i=0;i<3;++i) {
+            if(enabled[i]) MH_DisableHook(targets[i]);
+            if(created[i]) MH_RemoveHook(targets[i]);
+        }
+        s_NativePlaybackReady=ready;
+        LogTrace("[RECORDING] Native assigned-device playback: %s",ready?"READY":"UNAVAILABLE");
+    }
+
     typedef DWORD(WINAPI* tXInputGetState)(DWORD dwUserIndex, XINPUT_STATE* pState);
     typedef DWORD(WINAPI* tXInputGetCapabilities)(DWORD dwUserIndex, DWORD dwFlags, XINPUT_CAPABILITIES* pCapabilities);
 
@@ -25,7 +112,7 @@ namespace MK9TradeFix {
 
         if (pCapabilities) {
             bool overrideCaps = false;
-            if (rec.IsPlaying() && dwUserIndex == (DWORD)GetPlayerXInputPort(rec.GetPlaybackTargetPlayer())) {
+            if (rec.IsPlaying() && !rec.UsesNativePlayback() && dwUserIndex == (DWORD)GetPlayerXInputPort(rec.GetPlaybackTargetPlayer())) {
                 overrideCaps = true;
             } else if (HasActiveDiagnosticGamepad(dwUserIndex)) {
                 overrideCaps = true;
@@ -191,6 +278,7 @@ namespace MK9TradeFix {
     }
 
     void InputRecordingManager::InstallXInputHooks() {
+        InstallNativeRecordingHooks();
         const char* dlls[] = { "xinput1_3.dll", "xinput1_4.dll", "xinput9_1_0.dll" };
         for (int i = 0; i < 3; ++i) {
             HMODULE h = GetModuleHandleA(dlls[i]);
@@ -464,6 +552,7 @@ namespace MK9TradeFix {
         MK9Overlay::SetConsoleOpen(false);
         m_ShowHUD = true;
 
+        m_ActiveSlotIndex = slotIndex; // Synchronize HUD, status, highlights and subsequent slot actions.
         m_PlaybackSlotIndex = slotIndex;
         m_PlaybackTargetPlayer = targetPlayer;
         m_DelayRemainingFrames = (delayFrames > 0) ? delayFrames : 0;
@@ -562,6 +651,7 @@ namespace MK9TradeFix {
     }
 
     bool InputRecordingManager::GetPlaybackGamepad(DWORD dwUserIndex, XINPUT_STATE* pState) {
+        if (UsesNativePlayback()) return false;
         if (!pState || m_PlaybackSlotIndex < 0 || m_PlaybackSlotIndex >= MAX_SLOTS) return false;
         const auto& slot = m_Slots[m_PlaybackSlotIndex];
         if (slot.isEmpty || slot.frames.empty()) return false;
@@ -599,134 +689,19 @@ namespace MK9TradeFix {
 
     InputFrame InputRecordingManager::CaptureLivePlayerInput(int playerNum) {
         InputFrame frame;
-
-        if (playerNum == 2) {
-            // First merge native engine input tokens if captured this frame
-            if (m_NativeP2Input.directions != 0 || m_NativeP2Input.buttons != 0) {
-                frame.directions |= m_NativeP2Input.directions;
-                frame.buttons    |= m_NativeP2Input.buttons;
-                frame.dirToken    = m_NativeP2Input.dirToken;
-                frame.btnMask     = m_NativeP2Input.btnMask;
-            }
-
-            // Player 2 / Dummy Controller Capture (XInput)
-            if (m_HasLiveGamepadP2) {
-                frame.gamepad = m_LiveGamepadP2;
-                frame.hasGamepad = true;
-                m_HasLiveGamepadP2 = false;
-
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) || frame.gamepad.sThumbLY > 15000)    frame.directions |= IN_DIR_UP;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) || frame.gamepad.sThumbLY < -15000)  frame.directions |= IN_DIR_DOWN;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) || frame.gamepad.sThumbLX < -15000) frame.directions |= IN_DIR_LEFT;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) || frame.gamepad.sThumbLX > 15000) frame.directions |= IN_DIR_RIGHT;
-
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_X) frame.buttons |= IN_BTN_FP;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_Y) frame.buttons |= IN_BTN_BP;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_A) frame.buttons |= IN_BTN_FK;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_B) frame.buttons |= IN_BTN_BK;
-                if (frame.gamepad.bRightTrigger > 30)          frame.buttons |= IN_BTN_BLOCK;
-                if (frame.gamepad.bLeftTrigger > 30)           frame.buttons |= IN_BTN_STANCE;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) frame.buttons |= IN_BTN_TAG;
-            }
-
-            // P2 Keyboard Polling (Standard MK9 P2 bindings):
-            // Directions: Arrow keys ONLY (Never treat Numpad 4 or 6 as directions, they are attack kicks!)
-            if (GetAsyncKeyState(VK_UP) & 0x8000)    frame.directions |= IN_DIR_UP;
-            if (GetAsyncKeyState(VK_DOWN) & 0x8000)  frame.directions |= IN_DIR_DOWN;
-            if (GetAsyncKeyState(VK_LEFT) & 0x8000)  frame.directions |= IN_DIR_LEFT;
-            if (GetAsyncKeyState(VK_RIGHT) & 0x8000) frame.directions |= IN_DIR_RIGHT;
-
-            // Optional secondary direction keys: Numpad 8 (Up) and Numpad 2 (Down) only
-            if (GetAsyncKeyState(VK_NUMPAD8) & 0x8000) frame.directions |= IN_DIR_UP;
-            if (GetAsyncKeyState(VK_NUMPAD2) & 0x8000) frame.directions |= IN_DIR_DOWN;
-
-            // Attack buttons (Strictly authentic MK9 PC P2 Numpad layout):
-            // FP (1): Numpad 7
-            if (GetAsyncKeyState(VK_NUMPAD7) & 0x8000) frame.buttons |= IN_BTN_FP;
-            // BP (2): Numpad 9
-            if (GetAsyncKeyState(VK_NUMPAD9) & 0x8000) frame.buttons |= IN_BTN_BP;
-            // FK (3): Numpad 4 (MK9 standard) or Numpad 1
-            if ((GetAsyncKeyState(VK_NUMPAD4) & 0x8000) || (GetAsyncKeyState(VK_NUMPAD1) & 0x8000)) frame.buttons |= IN_BTN_FK;
-            // BK (4): Numpad 6 (MK9 standard) or Numpad 3
-            if ((GetAsyncKeyState(VK_NUMPAD6) & 0x8000) || (GetAsyncKeyState(VK_NUMPAD3) & 0x8000)) frame.buttons |= IN_BTN_BK;
-            // Block: Numpad 0, Enter, RControl
-            if ((GetAsyncKeyState(VK_NUMPAD0) & 0x8000) || (GetAsyncKeyState(VK_RETURN) & 0x8000) || (GetAsyncKeyState(VK_RCONTROL) & 0x8000)) frame.buttons |= IN_BTN_BLOCK;
-            // Tag: Numpad Decimal (.), RShift
-            if ((GetAsyncKeyState(VK_DECIMAL) & 0x8000) || (GetAsyncKeyState(VK_RSHIFT) & 0x8000)) frame.buttons |= IN_BTN_TAG;
-            // Stance: Numpad Add (+) (VK_SUBTRACT is reserved for P2 Select)
-            if (GetAsyncKeyState(VK_ADD) & 0x8000) frame.buttons |= IN_BTN_STANCE;
-
-            // Fallback: If no arrow keys/numpad used, check left-hand WASD / JIKL / UIJK for P2:
-            if (!(frame.directions & (IN_DIR_UP | IN_DIR_DOWN | IN_DIR_LEFT | IN_DIR_RIGHT))) {
-                if (GetAsyncKeyState('W') & 0x8000) frame.directions |= IN_DIR_UP;
-                if (GetAsyncKeyState('S') & 0x8000) frame.directions |= IN_DIR_DOWN;
-                if (GetAsyncKeyState('A') & 0x8000) frame.directions |= IN_DIR_LEFT;
-                if (GetAsyncKeyState('D') & 0x8000) frame.directions |= IN_DIR_RIGHT;
-            }
-            if (!(frame.buttons & (IN_BTN_FP | IN_BTN_BP | IN_BTN_FK | IN_BTN_BK))) {
-                if ((GetAsyncKeyState('U') & 0x8000) || (GetAsyncKeyState('T') & 0x8000)) frame.buttons |= IN_BTN_FP;
-                if ((GetAsyncKeyState('I') & 0x8000) || (GetAsyncKeyState('Y') & 0x8000)) frame.buttons |= IN_BTN_BP;
-                if ((GetAsyncKeyState('J') & 0x8000) || (GetAsyncKeyState('G') & 0x8000)) frame.buttons |= IN_BTN_FK;
-                if ((GetAsyncKeyState('K') & 0x8000) || (GetAsyncKeyState('H') & 0x8000)) frame.buttons |= IN_BTN_BK;
-                if (GetAsyncKeyState(VK_SPACE) & 0x8000) frame.buttons |= IN_BTN_BLOCK;
-            }
-        } else {
-            // First merge native engine input tokens if captured this frame
-            if (m_NativeP1Input.directions != 0 || m_NativeP1Input.buttons != 0) {
-                frame.directions |= m_NativeP1Input.directions;
-                frame.buttons    |= m_NativeP1Input.buttons;
-                frame.dirToken    = m_NativeP1Input.dirToken;
-                frame.btnMask     = m_NativeP1Input.btnMask;
-            }
-
-            // Player 1 Controller Capture (XInput)
-            if (m_HasLiveGamepadP1) {
-                frame.gamepad = m_LiveGamepadP1;
-                frame.hasGamepad = true;
-                m_HasLiveGamepadP1 = false;
-
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) || frame.gamepad.sThumbLY > 15000)    frame.directions |= IN_DIR_UP;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) || frame.gamepad.sThumbLY < -15000)  frame.directions |= IN_DIR_DOWN;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) || frame.gamepad.sThumbLX < -15000) frame.directions |= IN_DIR_LEFT;
-                if ((frame.gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) || frame.gamepad.sThumbLX > 15000) frame.directions |= IN_DIR_RIGHT;
-
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_X) frame.buttons |= IN_BTN_FP;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_Y) frame.buttons |= IN_BTN_BP;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_A) frame.buttons |= IN_BTN_FK;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_B) frame.buttons |= IN_BTN_BK;
-                if (frame.gamepad.bRightTrigger > 30)          frame.buttons |= IN_BTN_BLOCK;
-                if (frame.gamepad.bLeftTrigger > 30)           frame.buttons |= IN_BTN_STANCE;
-                if (frame.gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) frame.buttons |= IN_BTN_TAG;
-            }
-
-            // P1 Keyboard Polling:
-            // Directions: WASD or Arrow Keys
-            if ((GetAsyncKeyState('W') & 0x8000) || (GetAsyncKeyState(VK_UP) & 0x8000))    frame.directions |= IN_DIR_UP;
-            if ((GetAsyncKeyState('S') & 0x8000) || (GetAsyncKeyState(VK_DOWN) & 0x8000))  frame.directions |= IN_DIR_DOWN;
-            if ((GetAsyncKeyState('A') & 0x8000) || (GetAsyncKeyState(VK_LEFT) & 0x8000))  frame.directions |= IN_DIR_LEFT;
-            if ((GetAsyncKeyState('D') & 0x8000) || (GetAsyncKeyState(VK_RIGHT) & 0x8000)) frame.directions |= IN_DIR_RIGHT;
-
-            // Attack buttons (Supports authentic MK9 PC P1 keyboard and legacy layouts):
-            // FP (1): U, T, 1, or Numpad 7
-            if ((GetAsyncKeyState('U') & 0x8000) || (GetAsyncKeyState('T') & 0x8000) || (GetAsyncKeyState('1') & 0x8000) || (GetAsyncKeyState(VK_NUMPAD7) & 0x8000)) frame.buttons |= IN_BTN_FP;
-            // BP (2): I, Y, 2, or Numpad 9
-            if ((GetAsyncKeyState('I') & 0x8000) || (GetAsyncKeyState('Y') & 0x8000) || (GetAsyncKeyState('2') & 0x8000) || (GetAsyncKeyState(VK_NUMPAD9) & 0x8000)) frame.buttons |= IN_BTN_BP;
-            // FK (3): J, G, 3, or Numpad 4
-            if ((GetAsyncKeyState('J') & 0x8000) || (GetAsyncKeyState('G') & 0x8000) || (GetAsyncKeyState('3') & 0x8000) || (GetAsyncKeyState(VK_NUMPAD4) & 0x8000)) frame.buttons |= IN_BTN_FK;
-            // BK (4): K, H, L, or Numpad 6 (Note: VK_4 is P1 Select, NOT Back Kick!)
-            if ((GetAsyncKeyState('K') & 0x8000) || (GetAsyncKeyState('H') & 0x8000) || (GetAsyncKeyState('L') & 0x8000) || (GetAsyncKeyState(VK_NUMPAD6) & 0x8000)) frame.buttons |= IN_BTN_BK;
-            // Block: Space, Numpad 0, Enter
-            if ((GetAsyncKeyState(VK_SPACE) & 0x8000) || (GetAsyncKeyState(VK_NUMPAD0) & 0x8000) || (GetAsyncKeyState(VK_RETURN) & 0x8000)) frame.buttons |= IN_BTN_BLOCK;
-            // Tag: O, LShift, RShift, Numpad Decimal
-            if ((GetAsyncKeyState('O') & 0x8000) || (GetAsyncKeyState(VK_LSHIFT) & 0x8000) || (GetAsyncKeyState(VK_RSHIFT) & 0x8000) || (GetAsyncKeyState(VK_DECIMAL) & 0x8000)) frame.buttons |= IN_BTN_TAG;
-            // Stance: P, LControl, Numpad Add
-            if ((GetAsyncKeyState('P') & 0x8000) || (GetAsyncKeyState(VK_LCONTROL) & 0x8000) || (GetAsyncKeyState(VK_ADD) & 0x8000)) frame.buttons |= IN_BTN_STANCE;
-        }
-
+        NativeRecordingDevice device;
+        if (!ReadNativeRecordingDevice(playerNum,device)) return frame;
+        __try {
+            const auto actions=RecordingDevicePolicy::Decode(*(unsigned*)(device.pointer+0x0C));
+            frame.directions=actions.directions; frame.buttons=actions.buttons;
+            // Keep the existing file format, storing resolved actions instead of guessed VKs.
+            frame.btnMask=actions.buttons;
+        } __except(EXCEPTION_EXECUTE_HANDLER) { return InputFrame(); }
         return frame;
     }
 
     void InputRecordingManager::InjectPlayerInput(int playerNum, const InputFrame& currentFrame, const InputFrame& prevFrame) {
+        if (s_NativePlaybackReady) return;
         if (g_KeyboardAssignedPlayer != 0 && g_KeyboardAssignedPlayer != playerNum) return;
 
         auto UpdateKey = [](WORD vk, bool isNowDown, bool wasDown) {
@@ -813,6 +788,7 @@ namespace MK9TradeFix {
     }
 
     void InputRecordingManager::ReleaseAllInjectedKeys(int playerNum) {
+        if (s_NativePlaybackReady) { m_LastInjectedFrame=InputFrame(); return; }
         if (g_KeyboardAssignedPlayer != 0 && g_KeyboardAssignedPlayer != playerNum) return;
 
         if (playerNum == 1) {
@@ -932,6 +908,8 @@ namespace MK9TradeFix {
 
         // 4. Handle Active Playback
         if (m_State == RecordingState::PLAYING) {
+            NativeRecordingDevice assigned;
+            if (s_NativePlaybackReady && !ReadNativeRecordingDevice(m_PlaybackTargetPlayer,assigned)) { StopPlayback(); return; }
             if (m_DelayRemainingFrames > 0) {
                 m_DelayRemainingFrames--;
                 return;

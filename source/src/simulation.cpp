@@ -1,3 +1,4 @@
+#include "attack_restrictions.hpp"
 #include "simulation.hpp"
 #include "collision_visualizer.hpp"
 #include "combat_state.hpp"
@@ -1488,6 +1489,7 @@ namespace MK9TradeFix {
         ReversalEngine::Get().OnFrameTick(p1_char, p2_char);
         InputIsolation::OnFrameTick(p1_char, p2_char);
         ExtraGameplay::OnFrameTick(p1_char, p2_char);
+        AttackRestrictions::OnFrameTick(p1_char, p2_char);
         JuggleDeterioration::OnFrameTick(p1_char, p2_char);
         AttackFrameModifier::OnFrameTick(p1_char, p2_char);
         StunModifier::UpdateBlockPushbackTick(1, p1_char);

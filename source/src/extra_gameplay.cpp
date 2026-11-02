@@ -1,3 +1,5 @@
+#include "simulation.hpp"
+#include "keyboard_reset_policy.hpp"
 #include "stage_bounds_policy.hpp"
 #include <intrin.h>
 #include "roll_wakeup_policy.hpp"
@@ -828,11 +830,13 @@ namespace ExtraGameplay {
 
     typedef void(__thiscall* tResetForPractice)(void* pThis);
     static tResetForPractice oResetForPractice = nullptr;
+    static std::atomic<unsigned> s_NativeResetEpoch{0};
 
     static void __fastcall hkResetForPractice(void* pThis, void* edx) {
         if (oResetForPractice) {
             oResetForPractice(pThis);
         }
+        s_NativeResetEpoch.fetch_add(1,std::memory_order_relaxed);
         s_P1State=PlayerWakeupState(); s_P2State=PlayerWakeupState();
         TriggerLightingProbeWarmup();
     }
@@ -1126,6 +1130,37 @@ namespace ExtraGameplay {
     static int s_PendingCornerReset = 0; // -1 = Left Corner, 0 = Center/None, 1 = Right Corner
     static int s_PracticeResetCooldown = 0;
 
+    static KeyboardResetPolicy::Input s_KeyboardReset;
+    static std::atomic<unsigned long long> s_KeyboardResetRequest{0};
+    static bool KeyboardResetAllowed(bool textInput) {
+        const HWND target=GetTargetWindow(), foreground=GetForegroundWindow();
+        return target && foreground && GetAncestor(target,GA_ROOT)==GetAncestor(foreground,GA_ROOT) &&
+            IsTrainingMode() && IsMatchActive() && !IsGameOrSimulationPaused() && !textInput &&
+            !InputRecordingManager::Get().IsPlaying() && !InputRecordingManager::Get().IsRecording() &&
+            !ReversalEngine::Get().HasActiveSequence() && g_SimTriggerFrame==0;
+    }
+    void ObservePracticeKeyboard(HWND window, UINT message, WPARAM key, LPARAM detail, bool textInput) {
+        if (message==WM_KILLFOCUS || (message==WM_ACTIVATEAPP && !key)) {
+            s_KeyboardReset.Focus(true,true); s_KeyboardResetRequest.store(0); return;
+        }
+        if (message==WM_SETFOCUS) {
+            s_KeyboardReset.Focus((GetAsyncKeyState('4')&0x8000)!=0,
+                                  (GetAsyncKeyState(VK_SUBTRACT)&0x8000)!=0);
+            s_KeyboardResetRequest.store(0); return;
+        }
+        const bool down=message==WM_KEYDOWN || message==WM_SYSKEYDOWN;
+        if (!down && message!=WM_KEYUP && message!=WM_SYSKEYUP) return;
+        const bool allowed=KeyboardResetAllowed(textInput) && window==GetTargetWindow() &&
+            !(GetAsyncKeyState(VK_CONTROL)&0x8000) && !(GetAsyncKeyState(VK_MENU)&0x8000);
+        const int code=s_KeyboardReset.Key((unsigned)key,(unsigned)((detail>>16)&255),
+            (detail&(1u<<24))!=0,down,(detail&(1u<<30))!=0,allowed);
+        if (code) {
+            const unsigned epoch=s_NativeResetEpoch.load(std::memory_order_relaxed)&0xFFFFFF;
+            const unsigned long long request=((unsigned long long)GetTickCount()<<32)|(epoch<<8)|code;
+            s_KeyboardResetRequest.store(request,std::memory_order_release);
+        }
+    }
+
     static void TriggerNativePracticeReset() {
         if (!IsTrainingMode() || !IsMatchActive() || IsNativeGamePaused()) return;
         __try {
@@ -1139,6 +1174,7 @@ namespace ExtraGameplay {
     }
 
     void OnFrameTick(void* p1Char, void* p2Char) {
+        const unsigned long long keyboardRequest=s_KeyboardResetRequest.exchange(0,std::memory_order_acquire);
         UpdatePlayerState(p1Char, 1, s_P1State);
         UpdatePlayerState(p2Char, 2, s_P2State);
         UpdateMoveRecovery(p1Char, 1, s_P1Pacing);
@@ -1181,49 +1217,18 @@ namespace ExtraGameplay {
             bool isPlayback = InputRecordingManager::Get().IsPlaying();
             bool isReversal = ReversalEngine::Get().HasActiveSequence();
 
-            // Direct Keyboard Reset Polling:
-            // P1 Select on PC keyboard is VK_4 ('4', 0x34).
-            // P2 Select on PC keyboard is VK_SUBTRACT (Numpad '-', 0x6D).
-            // Strictly exclude VK_NUMPAD4 (0x64), which is P2's Front Kick on keyboard.
-            // Edge-triggered: only fires on new key press, and never interrupts playback or reversal sequences.
-            // Must be focused on the game window, not in console, and not paused.
-            static bool s_WasKbReset = false;
-            bool isFocused = IsGameWindowFocused();
-            bool isConsoleOpen = MK9Overlay::IsConsoleOpen();
-            bool isGamePaused = IsNativeGamePaused();
-            bool allowKbInput = isFocused && !isConsoleOpen && !isGamePaused && !isPlayback && !isReversal;
-
-            bool isKey4 = allowKbInput && ((GetAsyncKeyState('4') & 0x8000) != 0) && ((GetAsyncKeyState(VK_NUMPAD4) & 0x8000) == 0);
-            bool isSubtract = allowKbInput && ((GetAsyncKeyState(VK_SUBTRACT) & 0x8000) != 0);
-            bool isKbSelect = isKey4 || isSubtract;
-            bool kbResetRaw = isKbSelect;
-            bool kbResetEdge = kbResetRaw && !s_WasKbReset;
-            s_WasKbReset = kbResetRaw;
-
-            if (kbResetEdge) {
-                bool isLeft = ((GetAsyncKeyState(VK_LEFT) & 0x8000) != 0) || ((GetAsyncKeyState('A') & 0x8000) != 0);
-                bool isRight = ((GetAsyncKeyState(VK_RIGHT) & 0x8000) != 0) || ((GetAsyncKeyState('D') & 0x8000) != 0);
-                bool isDown = ((GetAsyncKeyState(VK_DOWN) & 0x8000) != 0) || ((GetAsyncKeyState('S') & 0x8000) != 0);
-
-                if (isLeft) {
-                    s_PendingCornerReset = isDown ? 3 : 2; // 3 = Left Swapped (P1 in corner), 2 = Left Normal (P2 in corner)
-                    s_PracticeResetCooldown = 3;
-                    TriggerLightingProbeWarmup();
-                } else if (isRight) {
-                    s_PendingCornerReset = isDown ? 5 : 4; // 5 = Right Swapped (P1 in corner), 4 = Right Normal (P2 in corner)
-                    s_PracticeResetCooldown = 3;
-                    TriggerLightingProbeWarmup();
-                } else if (isDown) {
-                    s_PendingCornerReset = 1; // 1 = Center Swapped (P1 Right, P2 Left)
-                    s_PracticeResetCooldown = 3;
-                    TriggerLightingProbeWarmup();
-                } else {
-                    s_PendingCornerReset = 0; // Standard neutral reset: let engine reset naturally without override
-                    s_PracticeResetCooldown = 0;
-                }
-
-                // Trigger native engine practice reset (clears combo, damage info, health, and animations)
-                TriggerNativePracticeReset();
+            // A physical key-down event carries one player's own direction snapshot.
+            // No asynchronous VK_4 aliases, typematic repeats or deferred focus presses.
+            const unsigned age=GetTickCount()-(unsigned)(keyboardRequest>>32);
+            if (keyboardRequest && age<=250 && KeyboardResetAllowed(false)) {
+                s_PendingCornerReset=(int)(keyboardRequest&255)-1;
+                s_PracticeResetCooldown=s_PendingCornerReset ? 3 : 0;
+                const unsigned epoch=(unsigned)(keyboardRequest>>8)&0xFFFFFF;
+                // Native keyboard Select may already have dispatched the reset.
+                if ((s_NativeResetEpoch.load(std::memory_order_relaxed)&0xFFFFFF)==epoch)
+                    TriggerNativePracticeReset();
+                TriggerLightingProbeWarmup();
+                LogTrace("[PRACTICE RESET] Physical keyboard reset accepted: position %d.",s_PendingCornerReset);
             }
 
             // Native ResetForPractice is hooked; ordinary move displacement is not a reset.
@@ -1411,6 +1416,7 @@ namespace ExtraGameplay {
     }
 } // namespace ExtraGameplay
 } // namespace MK9TradeFix
+
 
 
 

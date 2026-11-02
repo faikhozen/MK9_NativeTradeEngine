@@ -1,6 +1,7 @@
+#include "attack_restrictions.hpp"
 // ============================================================================
 // Mortal Kombat 9 (Komplete Edition) - Native Physical Trade Engine Mod
-// Version: 0.6710a (Void Mode, 3D Floor Grid, Stage Bounds & VFX Lighting Overhaul)
+// Version: 0.6710b-dev8-r1 (Void Mode, 3D Floor Grid, Stage Bounds & VFX Lighting Overhaul)
 // Release Build Architecture: x86 MSVC Dynamic Hook (dinput8.dll wrapper)
 // Target Executable: Mortal Kombat Komplete Edition (MKKE.exe - PC Steam)
 
@@ -32,7 +33,7 @@ namespace MK9TradeFix {
 
     void Initialize() {
         LogTrace("====================================================================");
-        LogTrace(" Mortal Kombat 9 Native Physical Trade Engine Mod (v0.6710a)");
+        LogTrace(" Mortal Kombat 9 Native Physical Trade Engine Mod (v0.6710b-dev8-r1)");
         LogTrace("====================================================================");
         LogTrace("===============================================================================");
 
@@ -61,6 +62,7 @@ namespace MK9TradeFix {
         FreeCamera::InitHooks();
         AnimViewer::Initialize();
         ExtraGameplay::Initialize();
+        AttackRestrictions::Initialize();
         MoveTelemetryHUD::InstallHooks();
         JuggleDeterioration::Initialize();
 
@@ -94,6 +96,12 @@ namespace MK9TradeFix {
         return g_FixEnabled;
     }
 }
+
+
+
+
+
+
 
 
 

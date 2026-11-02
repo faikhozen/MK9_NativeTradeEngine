@@ -334,7 +334,7 @@ namespace MK9TradeFix {
         // Event notifications from game engine hooks
         void NotifyIncomingHit(int defPlr, int attPlr, bool isBlocked, int rxID, const AttackClassification& atk, float damage);
         void NotifyIncomingKnockdown(int defPlr, int rxID);
-        void NotifyBlockstunEnd(int playerNum);
+        bool NotifyBlockstunEnd(int playerNum);
         void NotifyHitstunEnd(int playerNum);
         void NotifyWakeupReady(int playerNum);
 
@@ -347,7 +347,7 @@ namespace MK9TradeFix {
         ~ReversalEngine() = default;
 
         int PickWeightedSlot(const ReversalCategoryConfig& cfg);
-        void TriggerReversal(ReversalType type, int targetPlayer);
+        bool TriggerReversal(ReversalType type, int targetPlayer);
         void ExecutePresetAction(ReversalActionType action, int targetPlayer, int delayFrames);
         void TickActionSequence(void* p1Char, void* p2Char);
 

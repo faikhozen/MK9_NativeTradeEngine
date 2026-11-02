@@ -161,6 +161,7 @@ namespace StunModifier {
 
         HitIndicationHUD::g_ShowHitIndicationHUD = false;
 
+        AttackRestrictions::SetSettings(AttackRestrictions::Settings{});
         ExtraGameplay::g_DisableQuickWakeup = false;
         ExtraGameplay::g_DisableRollWakeupAttack = false;
         ExtraGameplay::g_DisableDelayedWakeup = false;
@@ -482,6 +483,7 @@ namespace StunModifier {
         p.gridWallColor[1] = ExtraGameplay::g_GridWallColor[1];
         p.gridWallColor[2] = ExtraGameplay::g_GridWallColor[2];
 
+        p.attackRestrictions = AttackRestrictions::GetSettings();
         p.disableQuickWakeup = ExtraGameplay::g_DisableQuickWakeup;
         p.disableRollWakeup = ExtraGameplay::g_DisableRollWakeupAttack;
         p.disableDelayedWakeup = ExtraGameplay::g_DisableDelayedWakeup;
@@ -594,6 +596,7 @@ namespace StunModifier {
         ExtraGameplay::g_GridWallColor[1] = p.gridWallColor[1];
         ExtraGameplay::g_GridWallColor[2] = p.gridWallColor[2];
 
+        AttackRestrictions::SetSettings(p.attackRestrictions);
         ExtraGameplay::g_DisableQuickWakeup = p.disableQuickWakeup;
         ExtraGameplay::g_DisableRollWakeupAttack = p.disableRollWakeup;
         ExtraGameplay::g_DisableDelayedWakeup = p.disableDelayedWakeup;
@@ -691,6 +694,16 @@ namespace StunModifier {
             fprintf(f, "floorGridCenterColor=%.3f,%.3f,%.3f\n", p.floorGridCenterColor[0], p.floorGridCenterColor[1], p.floorGridCenterColor[2]);
             fprintf(f, "showGridCornerWalls=%d\n", p.showGridCornerWalls ? 1 : 0);
             fprintf(f, "gridWallColor=%.3f,%.3f,%.3f\n", p.gridWallColor[0], p.gridWallColor[1], p.gridWallColor[2]);
+            fprintf(f, "disableDialCombos=%d\n", p.attackRestrictions.disableStrings ? 1 : 0);
+            fprintf(f, "disableSpecialMoves=%d\n", p.attackRestrictions.disableSpecials ? 1 : 0);
+            fprintf(f, "disableEXSpecialMoves=%d\n", p.attackRestrictions.disableEnhanced ? 1 : 0);
+            fprintf(f, "disableXRayMoves=%d\n", p.attackRestrictions.disableXRay ? 1 : 0);
+            fprintf(f, "disableNormalToSpecial=%d\n", p.attackRestrictions.disableNormalToSpecial ? 1 : 0);
+            fprintf(f, "disableNormalToEX=%d\n", p.attackRestrictions.disableNormalToEnhanced ? 1 : 0);
+            fprintf(f, "disableNormalToXRay=%d\n", p.attackRestrictions.disableNormalToXRay ? 1 : 0);
+            fprintf(f, "limitAirSpecialHeight=%d\n", p.attackRestrictions.limitAirSpecialHeight ? 1 : 0);
+            fprintf(f, "minimumAirSpecialHeight=%.1f\n", p.attackRestrictions.minimumAirSpecialHeight);
+            fprintf(f, "attackRestrictionScope=%d\n", p.attackRestrictions.scope);
             fprintf(f, "disableQuickWakeup=%d\n", p.disableQuickWakeup ? 1 : 0);
             fprintf(f, "disableRollWakeup=%d\n", p.disableRollWakeup ? 1 : 0);
             fprintf(f, "disableDelayedWakeup=%d\n", p.disableDelayedWakeup ? 1 : 0);
@@ -733,6 +746,7 @@ namespace StunModifier {
                 int num = 0;
                 if (sscanf_s(p, "[Preset_%d]", &num) == 1 && num >= 1 && num <= 4) {
                     currentPreset = num - 1;
+                    g_UserPresets[currentPreset].attackRestrictions = AttackRestrictions::Settings{}; // Legacy INIs default restrictions off.
                 } else {
                     currentPreset = -1;
                 }
@@ -826,6 +840,16 @@ namespace StunModifier {
                             ep.gridWallColor[0] = r; ep.gridWallColor[1] = g; ep.gridWallColor[2] = b;
                         }
                     }
+                    else if (strcmp(key, "disableDialCombos") == 0) ep.attackRestrictions.disableStrings = atoi(val) != 0;
+                    else if (strcmp(key, "disableSpecialMoves") == 0) ep.attackRestrictions.disableSpecials = atoi(val) != 0;
+                    else if (strcmp(key, "disableEXSpecialMoves") == 0) ep.attackRestrictions.disableEnhanced = atoi(val) != 0;
+                    else if (strcmp(key, "disableXRayMoves") == 0) ep.attackRestrictions.disableXRay = atoi(val) != 0;
+                    else if (strcmp(key, "disableNormalToSpecial") == 0) ep.attackRestrictions.disableNormalToSpecial = atoi(val) != 0;
+                    else if (strcmp(key, "disableNormalToEX") == 0) ep.attackRestrictions.disableNormalToEnhanced = atoi(val) != 0;
+                    else if (strcmp(key, "disableNormalToXRay") == 0) ep.attackRestrictions.disableNormalToXRay = atoi(val) != 0;
+                    else if (strcmp(key, "limitAirSpecialHeight") == 0) ep.attackRestrictions.limitAirSpecialHeight = atoi(val) != 0;
+                    else if (strcmp(key, "minimumAirSpecialHeight") == 0) ep.attackRestrictions.minimumAirSpecialHeight = AttackRestrictions::ClampAirHeight((float)atof(val));
+                    else if (strcmp(key, "attackRestrictionScope") == 0) { int v=atoi(val); ep.attackRestrictions.scope=(v>=0 && v<=2)?v:0; }
                     else if (strcmp(key, "disableQuickWakeup") == 0) ep.disableQuickWakeup = (atoi(val) != 0);
                     else if (strcmp(key, "disableRollWakeup") == 0) ep.disableRollWakeup = (atoi(val) != 0);
                     else if (strcmp(key, "disableDelayedWakeup") == 0) ep.disableDelayedWakeup = (atoi(val) != 0);
@@ -1863,3 +1887,4 @@ namespace StunModifier {
 
 } // namespace StunModifier
 } // namespace MK9TradeFix
+

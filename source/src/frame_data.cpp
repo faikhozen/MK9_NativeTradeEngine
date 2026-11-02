@@ -1,4 +1,5 @@
 #include "frame_data.hpp"
+#include "block_reaction_policy.hpp"
 #include "attack_phase.hpp"
 #include "wakeup_classification.hpp"
 #include "hook_pair.hpp"
@@ -153,6 +154,45 @@ namespace MK9TradeFix {
         return 14; // Safe universal fallback
     }
 
+    // The native reaction VM is character+2FA4 (handle at +2FA8).
+    // Shared animation waits hide the reaction name in a parent call frame.
+    // Frame unwinding mirrors native 0045C380, without executing or altering it.
+    static bool HasNativeBlockReaction(void* character) {
+        __try {
+            uintptr_t vm = *(uintptr_t*)((uintptr_t)character + 0x2FA4);
+            if (vm < 0x01000000 || IsBadReadPtr((void*)vm, 0x50) ||
+                *(uint32_t*)(vm + 4) != *(uint32_t*)((uintptr_t)character + 0x2FA8)) return false;
+            const uint32_t state = *(uint32_t*)(vm + 0x2C);
+            if (state != 1 && state != 2 && state != 4) return false;
+            const uintptr_t stack = *(uintptr_t*)(vm + 0x0C);
+            uintptr_t frame = *(uintptr_t*)(vm + 0x10);
+            uintptr_t end = *(uintptr_t*)(vm + 0x14);
+            uintptr_t desc = *(uintptr_t*)(vm + 0x30);
+            for (int depth = 0; depth < 16; ++depth) {
+                if (desc < 0x00400000 || IsBadReadPtr((void*)desc, 0x2C)) return false;
+                const char* name = *(const char**)desc;
+                if (name && !IsBadReadPtr(name, 64)) {
+                    char bounded[65] = {};
+                    std::memcpy(bounded, name, 64);
+                    if (BlockReaction::IsReactionFunction(bounded)) return true;
+                }
+                if (frame == stack) return false;
+                if (stack < 0x01000000 || frame < stack || end < frame + 16 ||
+                    end - stack > 0x100000 || IsBadReadPtr((void*)(end - 16), 16)) return false;
+                desc = *(uintptr_t*)(end - 8);
+                if (desc < 0x00400000 || IsBadReadPtr((void*)desc, 0x2C)) return false;
+                const uint32_t slots = *(uint32_t*)(desc + 0x28);
+                const uint32_t locals = *(uint32_t*)(desc + 0x14);
+                if (slots > 2048 || locals > 16384) return false;
+                const uintptr_t size = slots * 8 + 16 + locals;
+                end = frame;
+                if (size > end - stack) return false;
+                frame = end - size;
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        return false;
+    }
+
     void ToggleFrameDataVisualizer() {
         g_FrameDataVisualizerEnabled = !g_FrameDataVisualizerEnabled;
     }
@@ -222,10 +262,7 @@ namespace MK9TradeFix {
             g_P1_StunTracker.endFrame = 0;
             g_P1_StunTracker.attackerPlr = attPlr;
             if (isBlocked) {
-                uint32_t baseStun = ResolveAuthoredBlockstun(attPlr, g_P2_Lifecycle, GetP1Char());
-                int delta = StunModifier::g_GeneralBlockstunDelta;
-                int finalStun = (int)baseStun + delta;
-                g_P1_StunTracker.authoredFrames = (finalStun > 1) ? (uint32_t)finalStun : 1;
+                g_P1_StunTracker.authoredFrames = 0; // Measured on ticks, never guessed from attack tokens.
             } else {
                 int delta = StunModifier::g_PlayerStun[1].totalExtraFrames;
                 if (delta == 0) delta = StunModifier::g_GeneralHitstunDelta;
@@ -253,10 +290,7 @@ namespace MK9TradeFix {
             g_P2_StunTracker.endFrame = 0;
             g_P2_StunTracker.attackerPlr = attPlr;
             if (isBlocked) {
-                uint32_t baseStun = ResolveAuthoredBlockstun(attPlr, g_P1_Lifecycle, GetP2Char());
-                int delta = StunModifier::g_GeneralBlockstunDelta;
-                int finalStun = (int)baseStun + delta;
-                g_P2_StunTracker.authoredFrames = (finalStun > 1) ? (uint32_t)finalStun : 1;
+                g_P2_StunTracker.authoredFrames = 0; // Measured on ticks, never guessed from attack tokens.
             } else {
                 int delta = StunModifier::g_PlayerStun[2].totalExtraFrames;
                 if (delta == 0) delta = StunModifier::g_GeneralHitstunDelta;
@@ -571,7 +605,7 @@ namespace MK9TradeFix {
             int       rxFunc1   = *(int*)((uintptr_t)p1 + 0x2FB4);
             bool rxActive1 = (rxThread1 != 0 && rxFunc1 != -1);
 
-            if (g_P1_Lifecycle.inMove && g_P1_Lifecycle.startFrame > g_P1_StunTracker.startFrame) {
+            if (g_P1_Lifecycle.inMove && g_P1_Lifecycle.startFrame > g_P1_StunTracker.startFrame && !g_P1_StunTracker.isBlockstun) {
                 g_P1_StunTracker.inStun = false;
             }
 
@@ -581,24 +615,14 @@ namespace MK9TradeFix {
                 bool stillLocked = false;
                 uint64_t currAuth1 = (hitTimer1 > 0.05f && hitTimer1 <= 2.0f) ? 
                                      (uint64_t)(hitTimer1 * 60.0f + 0.5f) : 0;
-                if (currAuth1 > g_P1_StunTracker.authoredFrames) {
+                if (!g_P1_StunTracker.isBlockstun && currAuth1 > g_P1_StunTracker.authoredFrames) {
                     g_P1_StunTracker.authoredFrames = (uint32_t)currAuth1;
                 }
 
                 if (g_P1_StunTracker.isBlockstun) {
-                    uint32_t targetFrames = (g_P1_StunTracker.authoredFrames > 0) ? g_P1_StunTracker.authoredFrames : 14;
-                    if (elapsed <= targetFrames) {
-                        stillLocked = true;
-                    } else {
-                        stillLocked = false;
-                    }
-                    if (elapsed >= 4 && action1 != 0x0A01 && (action1 < 0x0A02 || action1 > 0x0A0F)) {
-                        stillLocked = false;
-                    }
-                    uint64_t maxBlockWindow = StunModifier::IsInExtendedStun(1) ? 200 : 60;
-                    if (elapsed > maxBlockWindow) {
-                        stillLocked = false;
-                    }
+                    stillLocked = BlockReaction::IsLocked(HasNativeBlockReaction(p1), action1, elapsed);
+                    // Safety ceiling for corrupt/stuck scripts; not an authored duration.
+                    if (elapsed > 600) stillLocked = false;
                 } else {
                     // Hitstun: locked during native hurt animation
                     bool inHurtAnim = (action1 >= 0x4000 && action1 <= 0x4FFF && action1 != 0x4F00);
@@ -621,8 +645,13 @@ namespace MK9TradeFix {
                 if (stillLocked) {
                     p1State = g_P1_StunTracker.isBlockstun ? 5 : 4;
                     p1Num = (uint8_t)elapsed;
+                    if (g_P1_StunTracker.isBlockstun) {
+                        g_P1_StunTracker.authoredFrames = (uint32_t)elapsed;
+                        s_p1Timeline.totalFrames = (int)elapsed;
+                    }
                 } else {
                     // Stun lock released by engine!
+                    const bool wasBlockstun = g_P1_StunTracker.isBlockstun;
                     g_P1_StunTracker.inStun = false;
                     g_P1_StunTracker.isBlockstun = false;
                     g_P1_StunTracker.endFrame = g_CurrentFrame;
@@ -634,7 +663,7 @@ namespace MK9TradeFix {
                         s_p2AdvState.defenderReleaseFrame = g_CurrentFrame;
                     }
                     LogTrace("[STUN RELEASE] P1 released from %s on frame %llu (Total: %u)",
-                             g_P1_StunTracker.isBlockstun ? "BLOCKSTUN" : "HITSTUN",
+                             wasBlockstun ? "BLOCKSTUN" : "HITSTUN",
                              g_CurrentFrame, finalStun);
                 }
             }
@@ -766,7 +795,7 @@ namespace MK9TradeFix {
             int       rxFunc2   = *(int*)((uintptr_t)p2 + 0x2FB4);
             bool rxActive2 = (rxThread2 != 0 && rxFunc2 != -1);
 
-            if (g_P2_Lifecycle.inMove && g_P2_Lifecycle.startFrame > g_P2_StunTracker.startFrame) {
+            if (g_P2_Lifecycle.inMove && g_P2_Lifecycle.startFrame > g_P2_StunTracker.startFrame && !g_P2_StunTracker.isBlockstun) {
                 g_P2_StunTracker.inStun = false;
             }
 
@@ -776,24 +805,14 @@ namespace MK9TradeFix {
                 bool stillLocked = false;
                 uint64_t currAuth2 = (hitTimer2 > 0.05f && hitTimer2 <= 2.0f) ? 
                                      (uint64_t)(hitTimer2 * 60.0f + 0.5f) : 0;
-                if (currAuth2 > g_P2_StunTracker.authoredFrames) {
+                if (!g_P2_StunTracker.isBlockstun && currAuth2 > g_P2_StunTracker.authoredFrames) {
                     g_P2_StunTracker.authoredFrames = (uint32_t)currAuth2;
                 }
 
                 if (g_P2_StunTracker.isBlockstun) {
-                    uint32_t targetFrames = (g_P2_StunTracker.authoredFrames > 0) ? g_P2_StunTracker.authoredFrames : 14;
-                    if (elapsed <= targetFrames) {
-                        stillLocked = true;
-                    } else {
-                        stillLocked = false;
-                    }
-                    if (elapsed >= 4 && action2 != 0x0A01 && (action2 < 0x0A02 || action2 > 0x0A0F)) {
-                        stillLocked = false;
-                    }
-                    uint64_t maxBlockWindow = StunModifier::IsInExtendedStun(2) ? 200 : 60;
-                    if (elapsed > maxBlockWindow) {
-                        stillLocked = false;
-                    }
+                    stillLocked = BlockReaction::IsLocked(HasNativeBlockReaction(p2), action2, elapsed);
+                    // Safety ceiling for corrupt/stuck scripts; not an authored duration.
+                    if (elapsed > 600) stillLocked = false;
                 } else {
                     // Hitstun: locked during native hurt animation
                     bool inHurtAnim = (action2 >= 0x4000 && action2 <= 0x4FFF && action2 != 0x4F00);
@@ -816,8 +835,13 @@ namespace MK9TradeFix {
                 if (stillLocked) {
                     p2State = g_P2_StunTracker.isBlockstun ? 5 : 4;
                     p2Num = (uint8_t)elapsed;
+                    if (g_P2_StunTracker.isBlockstun) {
+                        g_P2_StunTracker.authoredFrames = (uint32_t)elapsed;
+                        s_p2Timeline.totalFrames = (int)elapsed;
+                    }
                 } else {
                     // Stun lock released by engine!
+                    const bool wasBlockstun = g_P2_StunTracker.isBlockstun;
                     g_P2_StunTracker.inStun = false;
                     g_P2_StunTracker.isBlockstun = false;
                     g_P2_StunTracker.endFrame = g_CurrentFrame;
@@ -829,7 +853,7 @@ namespace MK9TradeFix {
                         s_p1AdvState.defenderReleaseFrame = g_CurrentFrame;
                     }
                     LogTrace("[STUN RELEASE] P2 released from %s on frame %llu (Total: %u)",
-                             g_P2_StunTracker.isBlockstun ? "BLOCKSTUN" : "HITSTUN",
+                             wasBlockstun ? "BLOCKSTUN" : "HITSTUN",
                              g_CurrentFrame, finalStun);
                 }
             }
@@ -1134,4 +1158,6 @@ namespace MK9TradeFix {
         }
     }
 }
+
+
 

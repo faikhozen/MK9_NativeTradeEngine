@@ -1,3 +1,4 @@
+#include "attack_restrictions.hpp"
 #include "imgui_overlay.hpp"
 #include "trade_fix.hpp"
 #include "crouch_buffer_fix.hpp"
@@ -116,6 +117,8 @@ namespace MK9Overlay {
     }
 
     static LRESULT CALLBACK hkWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        MK9TradeFix::ExtraGameplay::ObservePracticeKeyboard(hWnd,uMsg,wParam,lParam,
+            g_ImGuiInitialized && ImGui::GetCurrentContext() && ImGui::GetIO().WantTextInput);
         if (!g_ImGuiInitialized) {
             return CallWindowProcA(oWndProc, hWnd, uMsg, wParam, lParam);
         }
@@ -1181,7 +1184,7 @@ namespace MK9Overlay {
         
         char childId[32];
         snprintf(childId, sizeof(childId), "CtrlPortBox_%s", idSuffix);
-        ImGui::BeginChild(childId, ImVec2(0, 84), true);
+        ImGui::BeginChild(childId, ImVec2(0, 108), true);
 
         // --- ROW 1: Gamepad Controllers ---
         // Detect P2 button
@@ -1231,7 +1234,11 @@ namespace MK9Overlay {
 
         // --- Keyboard Information Notice ---
         ImGui::Spacing();
-        ImGui::TextColored(ImVec4(0.80f, 0.80f, 0.80f, 1.0f), "Note: Keyboard input for Recording & Reversal uses Player 2 default controls (Numpad / Arrow keys).");
+        ImGui::Text("Training assignment: P1 = %s | P2 = %s",
+            MK9TradeFix::InputRecordingManager::Get().GetNativeDeviceName(1),
+            MK9TradeFix::InputRecordingManager::Get().GetNativeDeviceName(2));
+        ImGui::TextDisabled("Recording uses game-assigned inputs. Native playback: %s",
+            MK9TradeFix::InputRecordingManager::NativePlaybackReady() ? "READY" : "UNAVAILABLE");
 
         ImGui::EndChild();
         ImGui::PopStyleColor(2);
@@ -1972,10 +1979,14 @@ namespace MK9Overlay {
                             ImGui::SetNextItemWidth(-1.0f);
                             if (slotCfg.delayFrames < 0 || slotCfg.delayFrames > 30) slotCfg.delayFrames = 0;
                             char dlyFmt[32];
-                            snprintf(dlyFmt, sizeof(dlyFmt), "%dF", slotCfg.delayFrames);
+                            snprintf(dlyFmt, sizeof(dlyFmt), (uniqueIdPrefix == 4 && slotCfg.delayFrames == 0) ? "%dF (Auto)" : "%dF", slotCfg.delayFrames);
                             ImGui::SliderInt(delayInputId, &slotCfg.delayFrames, 0, 30, dlyFmt);
                             if (ImGui::IsItemHovered()) {
-                                ImGui::SetTooltip("Reversal action execution delay upon getup recovery (0F = Frame 1 Reversal).");
+                                                                    if (uniqueIdPrefix == 4) {
+                                        ImGui::SetTooltip("0F (Auto): start the selected input at native block recovery, in either guard stance.\nPositive values add an intentional delay. Special motions still require their input steps.");
+                                    } else {
+                                        ImGui::SetTooltip("Reversal action execution delay upon getup recovery (0F = Frame 1 Reversal).");
+                                    }
                             }
                         } else {
                             slotCfg.delayFrames = 0; // Invincible Wakeup cannot be delayed
@@ -2123,7 +2134,7 @@ namespace MK9Overlay {
                 auto& catConfig = rev.GetConfig(MK9TradeFix::ReversalType::BLOCK);
                 RenderSlotTable(catConfig, 4, false, false);
                 ImGui::Spacing();
-                ImGui::TextDisabled("Block Reversal: Executes on the exact first frame out of blockstun. 'Delay' sets execution delay (0F-30F).");
+                ImGui::TextDisabled("Block Reversal: 0F starts inputs automatically at native block recovery for either guard stance. Delay adds extra frames.");
                 ImGui::EndTabItem();
             }
 
@@ -2155,7 +2166,7 @@ namespace MK9Overlay {
 
         char windowTitle[256];
         snprintf(windowTitle, sizeof(windowTitle),
-                 "MK9 Native Physical Trade Engine v0.6710a - Live In-Game Console | Extra: [%s]###MK9MainConsoleWindow",
+                 "MK9 Native Physical Trade Engine v0.6710b-dev8-r1 - Live In-Game Console | Extra: [%s]###MK9MainConsoleWindow",
                  MK9TradeFix::StunModifier::GetCurrentPresetName());
 
         if (ImGui::Begin(windowTitle, &g_ConsoleOpen, windowFlags)) {
@@ -3806,6 +3817,11 @@ namespace MK9Overlay {
 
 
 
+                    if (ImGui::CollapsingHeader("Move Restrictions", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        MK9TradeFix::AttackRestrictions::RenderUI();
+                        ImGui::Spacing();
+                    }
+
                     if (ImGui::CollapsingHeader("Knockdown & Wakeup Options")) {
                         ImGui::Spacing();
                         ImGui::TextColored(ImVec4(0.4f, 0.9f, 1.0f, 1.0f), "Knockdown & Recovery Customization:");
@@ -4739,7 +4755,7 @@ namespace MK9Overlay {
                 
                 ImGui::TextColored(countColor, "COUNTDOWN: %d...", countNum);
                 ImGui::ProgressBar(rec.GetCountdownProgressFraction(), ImVec2(-1, 14), "");
-                ImGui::TextDisabled("Get ready! Recording from P2 Gamepad / Controller starts at 0.");
+                ImGui::TextDisabled("Get ready! Recording from the assigned device starts at 0.");
             }
             // 2. WAITING FOR INPUT (AUTO TRIGGER)
             else if (state == MK9TradeFix::RecordingState::WAITING_FOR_INPUT) {
@@ -4772,7 +4788,7 @@ namespace MK9Overlay {
             else if (state == MK9TradeFix::RecordingState::PLAYING) {
                 auto& slot = rec.GetSlot(rec.GetActiveSlotIndex());
                 const char* curChar = (slot.characterName[0] != '\0') ? slot.characterName : "Dummy";
-                ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "▶ PLAYING BACK (Slot %d: %s on P2)", slotNum, curChar);
+                ImGui::TextColored(ImVec4(0.3f, 0.9f, 1.0f, 1.0f), "▶ PLAYING BACK (Slot %d: %s on P%d)", slotNum, curChar, rec.GetPlaybackTargetPlayer());
                 
                 uint32_t cur = rec.GetCurrentPlaybackProgress();
                 uint32_t total = slot.totalFrames;
@@ -5518,6 +5534,14 @@ namespace MK9TradeFix {
         MK9Overlay::s_MatchActiveFrames = 0;
     }
 }
+
+
+
+
+
+
+
+
 
 
 

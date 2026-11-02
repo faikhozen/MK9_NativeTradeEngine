@@ -1,3 +1,7 @@
+#include "recording_device_policy.hpp"
+#include "keyboard_reset_policy.hpp"
+#include "attack_restrictions.hpp"
+#include "block_reaction_policy.hpp"
 #include "stage_bounds_policy.hpp"
 #include "toasty_lifecycle_policy.hpp"
 #include "reversal_timing_policy.hpp"
@@ -151,6 +155,9 @@ static void CompatibilityTests(const char* executable) {
     for (unsigned i = 0; i < pe->FileHeader.NumberOfSections; ++i)
         memcpy(image.data() + sections[i].VirtualAddress, disk.data() + sections[i].PointerToRawData, sections[i].SizeOfRawData);
     const auto base = reinterpret_cast<uintptr_t>(image.data());
+    const uintptr_t normalizers[]={0x424910,0x424310,0x424500};
+    const unsigned char signatures[][6]={{0x55,0x8B,0xEC,0x83,0xEC,0x20},{0x55,0x8B,0xEC,0x83,0xEC,0x20},{0x55,0x8B,0xEC,0x83,0xEC,0x24}};
+    for(unsigned i=0;i<3;++i) CHECK(memcmp(image.data()+normalizers[i]-0x400000,signatures[i],6)==0);
     CHECK(ValidateExecutableImage(base));
     CHECK(!ValidateExecutableImage(base, true));
     image[0x8a5490 - 0x400000] ^= 1;
@@ -505,6 +512,208 @@ int main(int argc, char** argv) {
         CHECK(!StageBounds::Resolve(2000.0f, 1000.0f, bounds));
         CHECK(!StageBounds::Resolve(0.0f, std::numeric_limits<float>::quiet_NaN(), bounds));
     }
+    {
+        using namespace BlockReaction;
+        CHECK(IsReactionFunction("block_common_reaction"));
+        CHECK(IsReactionFunction("r_block_hit_medium"));
+        CHECK(!IsReactionFunction("p_standing_block_loop"));
+        CHECK(!IsReactionFunction("p_duck_block_loop"));
+        CHECK(!IsReactionFunction(nullptr));
+        CHECK(IsLocked(true, 0x0A01, 25)); // Reaction nested inside an animation wait.
+        CHECK(IsLocked(false, 0x4F00, 25)); // Crouch reaction must not end at 3F.
+        CHECK(!IsLocked(false, 0x0A01, 25)); // Holding guard is actionable.
+        CHECK(!IsLocked(false, 0x0900, 25)); // Crouching after release.
+        CHECK(!IsLocked(true, 0x0000, 25)); // Reaction parent remains during neutral exit.
+        CHECK(!IsLocked(true, 0x0900, 25));
+        CHECK(!IsLocked(true, 0x5200, 25)); // Accepted attack wins over a stale parent.
+        CHECK(!IsLocked(false, 0x5200, 25)); // A successful reversal is actionable.
+    }
+    {
+        using namespace AttackRestrictions;
+        Settings s;
+        // Independent toggles over the actual native dispatcher categories.
+        const MoveKind expected[] = {MoveKind::Special, MoveKind::Special, MoveKind::Special,
+            MoveKind::Other, MoveKind::Enhanced, MoveKind::Enhanced, MoveKind::Other,
+            MoveKind::Other, MoveKind::XRay, MoveKind::XRay, MoveKind::Other};
+        for (unsigned type = 0; type < 11; ++type) {
+            CHECK(KindFromNativeType(type) == expected[type]);
+            CHECK(!Reject(s, KindFromNativeType(type), 1));
+        }
+        s.disableSpecials = true;
+        CHECK(Reject(s, MoveKind::Special, 1));
+        CHECK(!Reject(s, MoveKind::Enhanced, 1));
+        CHECK(!Reject(s, MoveKind::XRay, 1));
+        s.disableSpecials = false; s.disableEnhanced = true;
+        CHECK(!Reject(s, MoveKind::Special, 1));
+        CHECK(Reject(s, MoveKind::Enhanced, 1));
+        CHECK(!Reject(s, MoveKind::XRay, 1));
+        s.disableEnhanced = false; s.disableXRay = true;
+        CHECK(!Reject(s, MoveKind::Enhanced, 1));
+        CHECK(Reject(s, MoveKind::XRay, 1));
+        s.disableSpecials = s.disableEnhanced = true;
+        CHECK(Reject(s, KindFromNativeType(8), 1)); // Captured p_cage_supermove descriptor.
+        CHECK(!Reject(s, KindFromNativeType(7), 1)); // Tag/assist path.
+        CHECK(!Reject(s, KindFromNativeType(99), 1));
+        s.scope = 2;
+        CHECK(!Reject(s, MoveKind::Special, 1));
+        CHECK(Reject(s, MoveKind::Special, 2));
+        CHECK(!Reject(s, MoveKind::Special, 0));
+        s.disableStrings = true;
+        CHECK(!RejectComboQuery(s, 2, 0)); // No opening normal yet.
+        CHECK(RejectComboQuery(s, 2, 1)); // Opening normal already in native history.
+        CHECK(RejectComboQuery(s, 2, 4)); // Longer string prefixes.
+        CHECK(!RejectComboQuery(s, 1, 1)); // Scope.
+        CHECK(!RejectComboQuery(s, 0, 1)); // Unresolved owner.
+        CHECK(!RejectComboQuery(s, 2, 0xFFFFFFFF)); // Invalid native history.
+    }
+    {
+        using namespace AttackRestrictions;
+        CHECK(IsNativeNormal(0x5000, 0x400));
+        CHECK(IsNativeNormal(0x5100, 0x400));
+        CHECK(!IsNativeNormal(0x5000, 0x200)); // Current special, not a normal.
+        CHECK(!IsNativeNormal(0x5208, 0x400)); // Cinematic X-Ray overrides stale flags.
+        CHECK(!IsNativeNormal(0, 0x400)); // Idle with a retained normal bit.
+        CHECK(!IsNativeNormal(0x4000, 0x400)); // Interrupted normal.
+        CHECK(!IsNativeNormal(0x2000, 0x400)); // Movement/link after recovery.
+        CHECK(IsNativeNormal(0x5200, 0x40200, true)); // Script still normal while flags change at cancel handoff.
+        CHECK(!IsNativeNormal(0, 0x40200, true)); // A retained script cannot restrict neutral.
+        CHECK(IsNativeNormal(0, 0x40200, true, true)); // Live normal-cancel helper handoff.
+        CHECK(!IsNativeNormal(0x4600, 0x400, true, true)); // An interrupted normal is no longer cancellable.
+        CHECK(IsNormalScriptName("attack2_2"));
+        CHECK(IsNormalScriptName("attack3towards"));
+        CHECK(!IsNormalScriptName("p_subzero_iceball"));
+        CHECK(!IsNormalScriptName("idle"));
+        CHECK(KindFromCommandFunction("generic_2in1_check") == MoveKind::Special);
+        CHECK(KindFromCommandFunction("generic_air_2in1_check") == MoveKind::Special);
+        CHECK(KindFromCommandFunction("generic_wakeup_2in1_check") == MoveKind::Special);
+        CHECK(KindFromCommandFunction("generic_EX_2in1_check") == MoveKind::Enhanced);
+        CHECK(KindFromCommandFunction("generic_air_EX_2in1_check") == MoveKind::Enhanced);
+        CHECK(KindFromCommandFunction("generic_wakeup_EX_2in1_check") == MoveKind::Enhanced);
+        CHECK(KindFromCommandFunction("generic_Xray_2in1_check") == MoveKind::XRay);
+        CHECK(KindFromCommandFunction("generic_air_Xray_2in1_check") == MoveKind::XRay);
+        CHECK(KindFromCommandFunction("abort_2in1_check") == MoveKind::Other);
+        CHECK(KindFromCommandFunction("p_player_loop") == MoveKind::Other);
+        const MoveKind kinds[] = {MoveKind::Special, MoveKind::Enhanced, MoveKind::XRay};
+        for (int selected = 0; selected < 3; ++selected) {
+            Settings s;
+            s.scope = 2;
+            s.disableNormalToSpecial = selected == 0;
+            s.disableNormalToEnhanced = selected == 1;
+            s.disableNormalToXRay = selected == 2;
+            for (int move = 0; move < 3; ++move) {
+                CHECK(!Reject(s, kinds[move], 2, false)); // Raw specials still allowed.
+                CHECK(Reject(s, kinds[move], 2, true) == (selected == move));
+                CHECK(!Reject(s, kinds[move], 1, true)); // Unselected player.
+            }
+            CHECK(!Reject(s, MoveKind::Other, 2, true)); // No collateral move filtering.
+            CHECK(!Reject(s, kinds[selected], 0, true)); // Unknown owner.
+        }
+        Settings s;
+        s.disableSpecials = true;
+        CHECK(Reject(s, MoveKind::Special, 1, false)); // Full restriction still overrides neutral.
+    }
+    {
+        using namespace AttackRestrictions;
+        Settings s;
+        CHECK(!s.limitAirSpecialHeight && s.minimumAirSpecialHeight == 50.0f);
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,32.9f,true));
+        s.limitAirSpecialHeight=true;
+        CHECK(RejectAirHeight(s,MoveKind::Special,1,true,32.9f,true)); // Captured low Kabal blast.
+        CHECK(RejectAirHeight(s,MoveKind::Enhanced,1,true,49.9f,true));
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,50.0f,true)); // Inclusive boundary.
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,134.0f,true)); // Captured high blast.
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,false,0,true)); // Grounded special.
+        CHECK(!RejectAirHeight(s,MoveKind::XRay,1,true,1,true));
+        CHECK(!RejectAirHeight(s,MoveKind::Other,1,true,1,true));
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,1,false)); // No valid grounded reference.
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,std::numeric_limits<float>::quiet_NaN(),true));
+        s.scope=2;
+        CHECK(!RejectAirHeight(s,MoveKind::Special,1,true,1,true));
+        CHECK(RejectAirHeight(s,MoveKind::Special,2,true,1,true));
+        CHECK(!RejectAirHeight(s,MoveKind::Special,0,true,1,true));
+        s.minimumAirSpecialHeight=0;
+        CHECK(!RejectAirHeight(s,MoveKind::Special,2,true,0,true));
+        CHECK(ClampAirHeight(-5)==0);
+        CHECK(ClampAirHeight(400)==300);
+        CHECK(ClampAirHeight(std::numeric_limits<float>::infinity())==50);
+        CHECK(HeightAboveFloor(132.9f,100)>32.89f && HeightAboveFloor(132.9f,100)<32.91f);
+        CHECK(HeightAboveFloor(90,100)==0);
+        CHECK(!std::isfinite(HeightAboveFloor(10,std::numeric_limits<float>::quiet_NaN())));
+        CHECK(IsNativeAirSpecial(1)); CHECK(IsNativeAirSpecial(2)); CHECK(IsNativeAirSpecial(5));
+        CHECK(!IsNativeAirSpecial(0)); CHECK(!IsNativeAirSpecial(4)); CHECK(!IsNativeAirSpecial(9));
+        CHECK(IsAirCommandFunction("generic_air_2in1_check"));
+        CHECK(IsAirCommandFunction("generic_air_EX_2in1_check"));
+        CHECK(!IsAirCommandFunction("generic_2in1_check"));
+        CHECK(!IsAirCommandFunction("generic_air_Xray_2in1_check"));
+    }
+    {
+        using MK9TradeFix::KeyboardResetPolicy::Input;
+        Input keys;
+        CHECK(keys.Key(0x64,0x4B,false,true,false,true)==0); // Numpad 4 attack.
+        CHECK(keys.Key('4',0x4B,false,true,false,true)==0); // Even an aliased VK cannot pass scan check.
+        CHECK(keys.Key('4',0x05,false,true,false,true)==1);
+        CHECK(keys.Key('4',0x05,false,true,true,true)==0);
+        CHECK(keys.Key('4',0x05,false,false,false,true)==0);
+        keys.Key('A',0x1E,false,true,false,true);
+        keys.Key(0x27,0x4D,true,true,false,true); // P2 right must not affect P1 left.
+        CHECK(keys.Key('4',0x05,false,true,false,true)==3);
+        keys.Key('4',0x05,false,false,false,true);
+        CHECK(keys.Key(0x6D,0x4A,false,true,false,true)==5);
+        keys.Key(0x6D,0x4A,false,false,false,true);
+        keys.Key(0x25,0x4B,false,true,false,true); // NumLock-off keypad 4 is not extended Left.
+        CHECK(keys.Key(0x6D,0x4A,false,true,false,true)==5);
+        keys.Focus(false,false);
+        keys.Key('S',0x1F,false,true,false,true);
+        CHECK(keys.Key('4',0x05,false,true,false,true)==2);
+        keys.Focus(false,false);
+        keys.Key('A',0x1E,false,true,false,true); keys.Key('S',0x1F,false,true,false,true);
+        CHECK(keys.Key('4',0x05,false,true,false,true)==4);
+        keys.Focus(false,false);
+        keys.Key('D',0x20,false,true,false,true); keys.Key('S',0x1F,false,true,false,true);
+        CHECK(keys.Key('4',0x05,false,true,false,true)==6);
+        keys.Focus(false,false);
+        keys.Key('A',0x1E,false,true,false,true); keys.Key('D',0x20,false,true,false,true);
+        CHECK(keys.Key('4',0x05,false,true,false,true)==0);
+        keys.Focus(false,false);
+        CHECK(keys.Key('4',0x05,false,true,false,false)==0); // Paused/text/playback/focus denial.
+        CHECK(keys.Key('4',0x05,false,true,true,true)==0); // Re-enable while held cannot fire.
+        keys.Key('4',0x05,false,false,false,true);
+        CHECK(keys.Key('4',0x05,false,true,false,true)==1);
+        keys.Focus(true,true); // Focus returned with keys still held.
+        CHECK(keys.Key('4',0x05,false,true,false,true)==0);
+        CHECK(keys.Key(0x6D,0x4A,false,true,false,true)==0);
+        keys.Key(0x6D,0x4A,false,false,false,true);
+        CHECK(keys.Key(0x6D,0x4A,false,true,false,true)==1);
+        keys.Focus(false,false);
+        CHECK(keys.Key('4',0x05,true,true,false,true)==0); // Wrong physical key.
+        CHECK(keys.Key('4',0x05,false,true,true,true)==0); // Stray typematic message.
+    }
+    {
+        using namespace MK9TradeFix::RecordingDevicePolicy;
+        // Independent native captures: left, right, FP, BP, FK, BK, block, stance, throw.
+        CHECK(Decode(4).directions==IN_DIR_LEFT);
+        CHECK(Decode(8).directions==IN_DIR_RIGHT);
+        CHECK(Decode(0x40).buttons==IN_BTN_FP);
+        CHECK(Decode(0x10).buttons==IN_BTN_BP);
+        CHECK(Decode(0x20).buttons==IN_BTN_FK);
+        CHECK(Decode(0x80).buttons==IN_BTN_BK);
+        CHECK(Decode(0x8000).buttons==IN_BTN_BLOCK);
+        CHECK(Decode(0x4000).buttons==IN_BTN_STANCE);
+        CHECK(Decode(0x2000).buttons==IN_BTN_THROW);
+        CHECK(Decode(0x1000).buttons==IN_BTN_TAG);
+        CHECK(Decode(0).directions==0 && Decode(0).buttons==0);
+        CHECK(Decode(0x80000000).buttons==0); // Unknown/system bits do not become attacks.
+        CHECK(Decode(0x8006).directions==(IN_DIR_DOWN|IN_DIR_LEFT));
+        CHECK(Encode(IN_DIR_DOWN|IN_DIR_LEFT,IN_BTN_BP|IN_BTN_BLOCK)==0x8016);
+        CHECK(Encode(0,IN_BTN_THROW)==0x2000);
+        CHECK(Encode(0,IN_BTN_STANCE)==0x4000);
+        CHECK(Encode(0,0)==0);
+        CHECK(DeviceSlot(0xE221A8)==0);
+        CHECK(DeviceSlot(0xE227B4)==1);
+        CHECK(DeviceSlot(0)==-1);
+        CHECK(DeviceSlot(0xE221A9)==-1);
+        CHECK(DeviceSlot(0xE221A8+18*0x60C)==-1);
+    }
     CompatibilityTests(argv[1]);
     // An unsupported host must be able to load the forwarding DLL without
     // installing game hooks or pinning itself into this test process.
@@ -514,6 +723,10 @@ int main(int argc, char** argv) {
     CHECK(FreeLibrary(mod));
     std::printf("PASS: %d checks (recording round trips, every truncated prefix, legacy/empty/oversized input, export failures, executable compatibility, hook rollback, unsupported-host DLL load)\n", checks);
 }
+
+
+
+
 
 
 
